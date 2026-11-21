@@ -259,6 +259,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     var videoLayout: VLCVideoLayout? = null
     lateinit var displayManager: DisplayManager
     var rootView: View? = null
+    private var floatingMarkersView: LinearLayout? = null
     var videoUri: Uri? = null
     var savedMediaList: ArrayList<MediaWrapper>? = null
     var savedMediaIndex: Int = 0
@@ -2134,13 +2135,14 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                     val dy = event.rawY - downY
                     if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop) dragged = true
                     if (dragged) {
-                        val root = rootView
-                        val minX = -capsule.left.toFloat()
-                        val maxX = (root.width - capsule.right).toFloat()
-                        val minY = -capsule.top.toFloat()
-                        val maxY = (root.height - capsule.bottom).toFloat()
-                        capsule.translationX = (initialX + dx).coerceIn(minX, maxX.coerceAtLeast(minX))
-                        capsule.translationY = (initialY + dy).coerceIn(minY, maxY.coerceAtLeast(minY))
+                        rootView?.let { root ->
+                            val minX = -capsule.left.toFloat()
+                            val maxX = (root.width - capsule.right).toFloat()
+                            val minY = -capsule.top.toFloat()
+                            val maxY = (root.height - capsule.bottom).toFloat()
+                            capsule.translationX = (initialX + dx).coerceIn(minX, maxX.coerceAtLeast(minX))
+                            capsule.translationY = (initialY + dy).coerceIn(minY, maxY.coerceAtLeast(minY))
+                        }
                     }
                     true
                 }
