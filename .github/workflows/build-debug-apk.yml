@@ -36,7 +36,10 @@ jobs:
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
       - name: Initialize VLC sources
-        run: bash ./buildsystem/compile.sh --init
+        run: |
+          export ANDROID_SDK="$ANDROID_HOME"
+          export ANDROID_NDK="$ANDROID_HOME/ndk/21.4.7075529"
+          bash ./buildsystem/compile.sh --init
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :application:vlc-android:assembleDebug
