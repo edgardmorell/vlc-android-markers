@@ -35,6 +35,9 @@ jobs:
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
+      - name: Initialize VLC sources
+        run: ./buildsystem/compile.sh --init
+
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :application:vlc-android:assembleDebug
 
