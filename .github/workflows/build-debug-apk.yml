@@ -35,6 +35,11 @@ jobs:
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "VLC Markers Build"
+          git config --global user.email "vlc-markers@users.noreply.github.com"
+
       - name: Initialize VLC sources
         run: |
           export ANDROID_SDK="$ANDROID_HOME"
