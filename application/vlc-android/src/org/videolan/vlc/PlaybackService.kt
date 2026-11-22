@@ -1789,7 +1789,7 @@ class PlaybackService : MediaBrowserServiceCompat(), LifecycleOwner, CoroutineSc
 
     @MainThread
     fun setRate(rate: Float, save: Boolean) {
-        if (playlistManager.player.rate == rate) return
+        if (this.rate == rate) return
         playlistManager.player.setRate(rate, save)
         // Live gesture updates already reach the player speed LiveData. Avoid
         // refreshing widgets, media-session metadata and broadcasts per sample.
