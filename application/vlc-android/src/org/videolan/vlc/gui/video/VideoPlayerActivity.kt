@@ -2115,23 +2115,33 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
         updateFloatingABButtons()
 
-        service?.playlistManager?.abRepeat?.observe(this) {
-            updateFloatingABButtons()
-        }
-        service?.playlistManager?.abRepeatOn?.observe(this) {
-            updateFloatingABButtons()
-        }
-
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop
         val longPressTimeout = android.view.ViewConfiguration.getLongPressTimeout()
+
+        val gestureHandler = Handler(Looper.getMainLooper())
 
         fun installDrag(view: View, buttonAction: (() -> Unit)? = null, longAction: (() -> Unit)? = null) {
             var downX = 0f
             var downY = 0f
             var initialX = 0f
             var initialY = 0f
-            var downTime = 0L
             var dragged = false
+            var longPressed = false
+
+            val longPressRunnable = Runnable {
+                if (!dragged && longAction != null) {
+                    longPressed = true
+                    longAction.invoke()
+                }
+            }
+
+            buttonAction?.let {
+                view.setOnClickListener { it.invoke() }
+            }
+
+            if (longAction != null) {
+                view.setOnLongClickListener { true }
+            }
 
             view.setOnTouchListener { v, event ->
                 when (event.action) {
@@ -2140,8 +2150,12 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                         downY = event.rawY
                         initialX = capsule.translationX
                         initialY = capsule.translationY
-                        downTime = event.eventTime
                         dragged = false
+                        longPressed = false
+                        if (longAction != null) {
+                            gestureHandler.removeCallbacks(longPressRunnable)
+                            gestureHandler.postDelayed(longPressRunnable, longPressTimeout.toLong())
+                        }
                         true
                     }
 
@@ -2149,8 +2163,12 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                         val dx = event.rawX - downX
                         val dy = event.rawY - downY
 
-                        if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop)
-                            dragged = true
+                        if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop) {
+                            if (!dragged) {
+                                dragged = true
+                                gestureHandler.removeCallbacks(longPressRunnable)
+                            }
+                        }
 
                         if (dragged) {
                             findViewById<View>(android.R.id.content)?.let { root ->
@@ -2167,21 +2185,24 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                     }
 
                     MotionEvent.ACTION_UP -> {
+                        gestureHandler.removeCallbacks(longPressRunnable)
                         if (dragged) {
                             settings.edit {
                                 putFloat(KEY_MARKER_X, capsule.translationX)
                                 putFloat(KEY_MARKER_Y, capsule.translationY)
                             }
-                        } else {
-                            val isLongPress = event.eventTime - downTime >= longPressTimeout
-                            if (isLongPress) longAction?.invoke() else buttonAction?.invoke()
+                        } else if (!longPressed) {
                             v.performClick()
                         }
                         true
                     }
 
-                    MotionEvent.ACTION_CANCEL -> true
-                    else -> false
+                    MotionEvent.ACTION_CANCEL -> {
+                        gestureHandler.removeCallbacks(longPressRunnable)
+                        true
+                    }
+
+                    else -> true
                 }
             }
         }
@@ -2297,6 +2318,11 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 setPadding(16, 8, 16, 8)
                 setTextColor(android.graphics.Color.RED)
                 setOnClickListener {
+                    // Save other labels before rebuilding the list so deleting one
+                    // marker does not discard edits made to the remaining entries.
+                    editors.forEach { (editedTime, editor) ->
+                        if (editedTime != time) saveFloatingMarkerLabel(editedTime, editor.text.toString())
+                    }
                     removeFloatingMarker(time)
                     showFloatingMarkerList()
                 }
@@ -2335,6 +2361,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         val media = manager.getCurrentMedia()
         val currentTime = service?.getTime() ?: return
 
+        // Pressing either button while the loop is active disables and clears it.
         if (manager.abRepeatOn.value == true) {
             manager.toggleABRepeat()
             manager.resetABRepeatValues(media)
@@ -2342,29 +2369,35 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
             return
         }
 
-        manager.setABRepeatValue(media, currentTime)
-
         val repeat = manager.abRepeat.value
-        if (repeat != null && repeat.start >= 0 && repeat.stop >= 0 && repeat.stop > repeat.start) {
-            manager.abRepeatOn.value = true
+
+        if (isA) {
+            // A always starts a new loop definition.
+            manager.resetABRepeatValues(media)
+            manager.setABRepeatValue(media, currentTime)
+        } else {
+            // B is only valid after A and must be later than A.
+            if (repeat == null || repeat.start < 0L || currentTime <= repeat.start) {
+                Toast.makeText(this, R.string.floating_markers_none, Toast.LENGTH_SHORT).show()
+                updateFloatingABButtons()
+                return
+            }
+            manager.setABRepeatValue(media, currentTime)
+            val updated = manager.abRepeat.value
+            if (updated != null && updated.start >= 0L && updated.stop > updated.start) {
+                manager.abRepeatOn.value = true
+            }
         }
 
         updateFloatingABButtons()
     }
 
     private fun updateFloatingABButtons() {
-        val manager = service?.playlistManager
-        val repeat = manager?.abRepeat?.value
-        val active = manager?.abRepeatOn?.value == true
+        val active = service?.playlistManager?.abRepeatOn?.value == true
+        val color = if (active) android.graphics.Color.GREEN else android.graphics.Color.GRAY
 
-        findViewById<TextView>(R.id.marker_loop_a)?.setTextColor(
-            if (active || (repeat?.start ?: -1L) >= 0) android.graphics.Color.GREEN
-            else android.graphics.Color.GRAY
-        )
-        findViewById<TextView>(R.id.marker_loop_b)?.setTextColor(
-            if (active || (repeat?.stop ?: -1L) >= 0) android.graphics.Color.GREEN
-            else android.graphics.Color.GRAY
-        )
+        findViewById<TextView>(R.id.marker_loop_a)?.setTextColor(color)
+        findViewById<TextView>(R.id.marker_loop_b)?.setTextColor(color)
     }
     fun doPlayPause() {
         if (service?.isPausable != true) return
@@ -2808,7 +2841,16 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
     open fun onServiceChanged(service: PlaybackService?) {
         if (service != null) {
+            this.service?.playlistManager?.abRepeat?.removeObservers(this)
+            this.service?.playlistManager?.abRepeatOn?.removeObservers(this)
             this.service = service
+            service.playlistManager.abRepeat.observe(this) {
+                updateFloatingABButtons()
+            }
+            service.playlistManager.abRepeatOn.observe(this) {
+                updateFloatingABButtons()
+            }
+            updateFloatingABButtons()
             if (savedMediaList != null && service.currentMediaWrapper == null) {
                 service.append(savedMediaList!!, savedMediaIndex)
                 savedMediaList = null
@@ -2828,6 +2870,8 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         } else if (this.service != null) {
             this.service?.removeCallback(this)
             this.service?.playlistManager?.waitForConfirmation?.removeObserver(resumeDialogObserver)
+            this.service?.playlistManager?.abRepeat?.removeObservers(this)
+            this.service?.playlistManager?.abRepeatOn?.removeObservers(this)
             this.service = null
             handler.sendEmptyMessage(AUDIO_SERVICE_CONNECTION_FAILED)
             removeDownloadedSubtitlesObserver()
