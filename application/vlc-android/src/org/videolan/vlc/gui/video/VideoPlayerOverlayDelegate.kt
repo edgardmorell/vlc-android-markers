@@ -114,6 +114,7 @@ import org.videolan.vlc.viewmodels.PlaylistModel
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.roundToInt
 
 
 class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
@@ -363,15 +364,15 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
      * Show the brightness value with  bar
      * @param brightness the brightness value
      */
-    fun showBrightnessBar(brightness: Int) {
+    fun showBrightnessBar(brightness: Float) {
         player.handler.sendEmptyMessage(VideoPlayerActivity.FADE_OUT_VOLUME_INFO)
         player.findViewById<ViewStubCompat>(R.id.player_brightness_stub)?.setVisible()
         playerOverlayBrightness = player.findViewById(R.id.player_overlay_brightness)
         brightnessValueText = player.findViewById(R.id.brightness_value_text)
         playerBrightnessProgress = player.findViewById(R.id.playerBrightnessProgress)
         playerOverlayBrightness.setVisible()
-        brightnessValueText.text = "$brightness%"
-        playerBrightnessProgress.setValue(brightness)
+        brightnessValueText.text = String.format(Locale.getDefault(), "%.1f%%", brightness)
+        playerBrightnessProgress.setValue(brightness.roundToInt())
         playerOverlayBrightness.setVisible()
         player.handler.removeMessages(VideoPlayerActivity.FADE_OUT_BRIGHTNESS_INFO)
         player.handler.sendEmptyMessageDelayed(VideoPlayerActivity.FADE_OUT_BRIGHTNESS_INFO, 1000L)

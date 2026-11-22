@@ -410,6 +410,9 @@
     <string name="video_show_orientation_button">Show orientation button</string>
     <string name="enable_brightness_gesture_title">Brightness gesture</string>
     <string name="enable_brightness_gesture_summary">Control brightness by gesture during video playback</string>
+    <string name="enable_speed_gesture_title">Speed gesture</string>
+    <string name="enable_speed_gesture_summary">Control playback speed by gesture during video playback</string>
+    <string name="speed_gesture_value">Speed %1$.3f×</string>
     <string name="enable_volume_gesture_title">Volume gesture</string>
     <string name="enable_volume_gesture_summary">Control volume by gesture during video playback</string>
     <string name="enable_seek_buttons">Seek buttons</string>

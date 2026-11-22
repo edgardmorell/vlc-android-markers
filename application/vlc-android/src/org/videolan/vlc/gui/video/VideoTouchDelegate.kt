@@ -46,6 +46,7 @@ import kotlin.math.sign
 
 const val TOUCH_FLAG_AUDIO_VOLUME = 1
 const val TOUCH_FLAG_BRIGHTNESS = 1 shl 1
+const val TOUCH_FLAG_SPEED = 1 shl 8
 const val TOUCH_FLAG_DOUBLE_TAP_SEEK = 1 shl 2
 const val TOUCH_FLAG_PLAY = 1 shl 3
 const val TOUCH_FLAG_SWIPE_SEEK = 1 shl 4
@@ -61,6 +62,7 @@ private const val TOUCH_TAP_SEEK = 4
 private const val TOUCH_IGNORE = 5
 private const val TOUCH_SCREENSHOT = 6
 private const val TOUCH_FASTPLAY = 7
+private const val TOUCH_SPEED = 8
 
 private const val MIN_FOV = 20f
 private const val MAX_FOV = 150f
@@ -93,6 +95,12 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
 
     private var lastMove: Long = 0
     private var savedRate: Float = 1f
+    private var fastPlayRunnable: Runnable? = null
+    private var speedGestureStartRate = 1f
+    private var lastSpeedGestureRate = 1f
+    private var brightnessGestureStartValue = 0f
+    private var volumeGestureStartValue = 0f
+    private var lastVolumeGestureIndex = 0
 
     //Seek
     private var nbTimesTaped = 0
@@ -117,6 +125,11 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
     companion object {
         private const val TAG = "VLC/VideoTouchDelegate"
         private const val SEEK_TIMEOUT = 750L
+        private const val MIN_GESTURE_RATE = 0.25f
+        private const val MAX_GESTURE_RATE = 8f
+        private const val MIN_BRIGHTNESS = 0.01f
+        private const val GESTURE_STEPS_PER_UNIT = 1000f
+        private const val GESTURE_ACTIVATION_THRESHOLD = 0.001f
     }
 
     private val scaleGestureDetector by lazy(LazyThreadSafetyMode.NONE) {
@@ -183,7 +196,12 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         initTouchX = event.x
                         initInAllowedBounds = isInAllowedBounds(initTouchX, initTouchY)
                         touchY = initTouchY
+                        speedGestureStartRate = player.service?.rate ?: 1f
+                        lastSpeedGestureRate = speedGestureStartRate
                         player.initAudioVolume()
+                        brightnessGestureStartValue = getWindowBrightnessValue()
+                        volumeGestureStartValue = player.volume
+                        lastVolumeGestureIndex = player.volume.roundToInt()
                         if (touchAction == TOUCH_FASTPLAY) {
                             player.overlayDelegate.hideOverlay(false)
                             player.service?.setRate(savedRate, false)
@@ -194,7 +212,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         touchX = event.x
                         // Mouse events for the core
                         player.sendMouseEvent(MotionEvent.ACTION_DOWN, xTouch, yTouch)
-                        val fastPlayRunnable = Runnable {
+                        fastPlayRunnable = Runnable {
                             if (touchAction == TOUCH_NONE && player.service != null) {
                                 savedRate = player.service!!.rate
                                 player.service?.setRate(org.videolan.tools.Settings.fastplaySpeed, false)
@@ -204,23 +222,38 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                             }
                         }
                         if (touchControls and TOUCH_FLAG_FASTPLAY != 0 && isInAllowedBounds(touchX, touchY))
-                            handler.postDelayed(fastPlayRunnable, 250)
+                            fastPlayRunnable?.let { handler.postDelayed(it, 250) }
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if ((touchControls and TOUCH_FLAG_SCREENSHOT == TOUCH_FLAG_SCREENSHOT) && event.pointerCount == 3 && touchAction != TOUCH_FASTPLAY) touchAction = TOUCH_SCREENSHOT
                         if (touchAction == TOUCH_IGNORE || touchAction == TOUCH_FASTPLAY) return false
                         // Mouse events for the core
-                        player.sendMouseEvent(MotionEvent.ACTION_MOVE, xTouch, yTouch)
+                        if (touchAction != TOUCH_SPEED) player.sendMouseEvent(MotionEvent.ACTION_MOVE, xTouch, yTouch)
 
                         if (player.fov == 0f) {
                             // No volume/brightness action if coef < 2 or a secondary display is connected
                             //TODO : Volume action when a secondary display is connected
                             if (touchAction != TOUCH_TAP_SEEK && coef > 2 && player.isOnPrimaryDisplay) {
                                 if (!verticalTouchActive) {
-                                    if ((yChanged / screenConfig.yRange).absoluteValue >= 0.05) {
+                                    val activationThreshold = if (isVerticalGestureEnabledAtStart()) GESTURE_ACTIVATION_THRESHOLD else 0.05f
+                                    if ((yChanged / screenConfig.yRange).absoluteValue >= activationThreshold) {
                                         verticalTouchActive = true
                                         touchY = event.y
                                         touchX = event.x
+                                        if (isSpeedGestureZone()) {
+                                            touchAction = TOUCH_SPEED
+                                            handler.removeCallbacksAndMessages(null)
+                                            fastPlayRunnable = null
+                                            player.sendMouseEvent(MotionEvent.ACTION_UP, xTouch, yTouch)
+                                            doSpeedTouch()
+                                            return true
+                                        }
+                                        if (isVerticalGestureEnabledAtStart()) {
+                                            handler.removeCallbacksAndMessages(null)
+                                            fastPlayRunnable = null
+                                            doVerticalTouchAction(yChanged)
+                                            return true
+                                        }
                                     }
                                     return false
                                 }
@@ -243,6 +276,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                     MotionEvent.ACTION_UP -> {
                         // FastPlay
                         if (touchAction == TOUCH_FASTPLAY) {
+                            fastPlayRunnable?.let { handler.removeCallbacks(it) }
                             player.overlayDelegate.hideOverlay(false)
                             player.service?.setRate(savedRate, false)
                             hideFastplay()
@@ -251,6 +285,13 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         }
                         if ((touchControls and TOUCH_FLAG_SCREENSHOT == TOUCH_FLAG_SCREENSHOT) && touchAction == TOUCH_SCREENSHOT) {
                             player.takeScreenshot()
+                            return true
+                        }
+                        if (touchAction == TOUCH_SPEED) {
+                            handler.removeCallbacksAndMessages(null)
+                            fastPlayRunnable = null
+                            player.overlayDelegate.showInfo(player.getString(R.string.speed_gesture_value, lastSpeedGestureRate), 1000)
+                            touchAction = TOUCH_NONE
                             return true
                         }
                         val touchSlop = ViewConfiguration.get(player).scaledTouchSlop
@@ -313,6 +354,14 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                             showHideUIRunnable.run()
                         }
                     }
+                    MotionEvent.ACTION_CANCEL -> {
+                        if (touchAction == TOUCH_SPEED) {
+                            handler.removeCallbacksAndMessages(null)
+                            fastPlayRunnable = null
+                            touchAction = TOUCH_NONE
+                            return true
+                        }
+                    }
                 }
                 return touchAction != TOUCH_NONE
             }
@@ -371,6 +420,15 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
 
     private fun doVerticalTouchAction(y_changed: Float) {
         if (BuildConfig.DEBUG) Log.d(this::class.java.simpleName, "doVerticalTouchAction $y_changed // ${screenConfig.metrics.widthPixels} // ${3 * screenConfig.metrics.widthPixels / 7f} // $touchX")
+        if (isSpeedGestureZone()) {
+            if (touchAction == TOUCH_NONE || touchAction == TOUCH_SPEED) {
+                touchAction = TOUCH_SPEED
+                fastPlayRunnable?.let { handler.removeCallbacks(it) }
+                doSpeedTouch()
+            }
+            player.overlayDelegate.hideOverlay(true)
+            return
+        }
         val rightAction = touchX.toInt() > 4 * screenConfig.metrics.widthPixels / 7f
         val leftAction = !rightAction && touchX.toInt() < 3 * screenConfig.metrics.widthPixels / 7f
         if (!leftAction && !rightAction) return
@@ -380,13 +438,39 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         if (!audio && !brightness)
             return
         if (rightAction) {
-            if (audio) doVolumeTouch(y_changed)
-            else doBrightnessTouch(y_changed)
+            if (audio) doVolumeTouch()
+            else doBrightnessTouch()
         } else {
-            if (brightness) doBrightnessTouch(y_changed)
-            else doVolumeTouch(y_changed)
+            if (brightness) doBrightnessTouch()
+            else doVolumeTouch()
         }
         player.overlayDelegate.hideOverlay(true)
+    }
+
+    private fun isSpeedGestureZone(): Boolean {
+        if (touchControls and TOUCH_FLAG_SPEED == 0) return false
+        val x = initTouchX
+        return x >= 3 * screenConfig.metrics.widthPixels / 7f && x <= 4 * screenConfig.metrics.widthPixels / 7f
+    }
+
+    private fun isVerticalGestureEnabledAtStart(): Boolean {
+        if (isSpeedGestureZone()) return true
+        val width = screenConfig.metrics.widthPixels
+        val x = initTouchX
+        val isSideZone = x < 3 * width / 7f || x > 4 * width / 7f
+        return isSideZone && (touchControls and (TOUCH_FLAG_AUDIO_VOLUME or TOUCH_FLAG_BRIGHTNESS) != 0)
+    }
+
+    private fun doSpeedTouch() {
+        if (!initInAllowedBounds || (touchAction != TOUCH_NONE && touchAction != TOUCH_SPEED)) return
+        val rate = ((speedGestureStartRate + cumulativeGestureDelta()) * GESTURE_STEPS_PER_UNIT)
+            .roundToInt()
+            .div(1000f)
+            .coerceIn(MIN_GESTURE_RATE, MAX_GESTURE_RATE)
+        if (rate == lastSpeedGestureRate) return
+        lastSpeedGestureRate = rate
+        player.service?.setRate(rate, true)
+        player.overlayDelegate.showInfo(player.getString(R.string.speed_gesture_value, rate), 1000)
     }
 
     private fun doSeekTouch(coef: Int, gesturesize: Float, seek: Boolean) {
@@ -427,63 +511,61 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         }
     }
 
-    private fun doVolumeTouch(y_changed: Float) {
+    private fun doVolumeTouch() {
         if (!initInAllowedBounds) return
         if (touchAction != TOUCH_NONE && touchAction != TOUCH_VOLUME) return
         val audioMax = player.audioMax
-        val delta = -(y_changed / screenConfig.yRange * audioMax * 1.25f)
-        player.volume += delta
-        val vol = player.volume.toInt().coerceIn(0, audioMax * if (player.isAudioBoostEnabled) 2 else 1)
-        if (delta < 0) player.originalVol = vol.toFloat()
-        if (delta != 0f) {
-            if (vol > audioMax) {
-                if (player.isAudioBoostEnabled) {
-                    if (player.originalVol < audioMax) {
-                        player.displayWarningToast()
-                        player.setAudioVolume(audioMax)
-                    } else {
-                        player.setAudioVolume(vol)
-                    }
-                    touchAction = TOUCH_VOLUME
-                }
-            } else {
-                player.setAudioVolume(vol)
-                touchAction = TOUCH_VOLUME
-            }
+        val maxVolume = (audioMax * if (player.isAudioBoostEnabled) 2 else 1).coerceAtLeast(1)
+        val normalizedStart = (volumeGestureStartValue / maxVolume).coerceIn(0f, 1f)
+        val normalizedDelta = cumulativeGestureDelta()
+        val targetVolume = (normalizedStart + normalizedDelta).coerceIn(0f, 1f) * maxVolume
+        player.volume = targetVolume
+        val vol = targetVolume.roundToInt().coerceIn(0, maxVolume)
+        if (normalizedDelta < 0f) player.originalVol = vol.toFloat()
+        touchAction = TOUCH_VOLUME
+        if (vol == lastVolumeGestureIndex) return
+
+        if (vol > audioMax && player.isAudioBoostEnabled && player.originalVol < audioMax) {
+            player.displayWarningToast()
+            player.setAudioVolume(audioMax)
+            lastVolumeGestureIndex = audioMax
+        } else {
+            player.setAudioVolume(vol)
+            lastVolumeGestureIndex = vol
         }
     }
 
     private fun initBrightnessTouch() {
         val lp = player.window.attributes
-
-        //Check if we already have a brightness
-        val brightnesstemp = if (lp.screenBrightness != -1f)
-            lp.screenBrightness
-        else {
-            //Check if the device is in auto mode
-            val contentResolver = player.applicationContext.contentResolver
-            if (Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC) == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC) {
-                //cannot retrieve a value -> 0.5
-                0.5f
-            } else Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128).toFloat() / 255
-        }
-
-        lp.screenBrightness = brightnesstemp
+        lp.screenBrightness = getWindowBrightnessValue()
         player.window.attributes = lp
         isFirstBrightnessGesture = false
     }
 
-    private fun doBrightnessTouch(ychanged: Float) {
+    private fun getWindowBrightnessValue(): Float {
+        val screenBrightness = player.window.attributes.screenBrightness
+        if (screenBrightness != -1f) return screenBrightness
+        val contentResolver = player.applicationContext.contentResolver
+        return if (Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC) == Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC) {
+            0.5f
+        } else Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128).toFloat() / 255f
+    }
+
+    private fun doBrightnessTouch() {
         if (BuildConfig.DEBUG) Log.d(this::class.java.simpleName, "doBrightnessTouch: $initInAllowedBounds")
         if (!initInAllowedBounds) return
         if (touchAction != TOUCH_NONE && touchAction != TOUCH_BRIGHTNESS) return
         if (isFirstBrightnessGesture) initBrightnessTouch()
         touchAction = TOUCH_BRIGHTNESS
+        val targetBrightness = (brightnessGestureStartValue + cumulativeGestureDelta()).coerceIn(MIN_BRIGHTNESS, 1f)
+        val currentBrightness = player.window.attributes.screenBrightness
+        if (targetBrightness != currentBrightness) player.changeBrightness(targetBrightness - currentBrightness)
+    }
 
-        // Set delta : 2f is arbitrary for now, it possibly will change in the future
-        val delta = -ychanged / screenConfig.yRange * 1.25f
-
-        player.changeBrightness(delta)
+    private fun cumulativeGestureDelta(): Float {
+        val height = screenConfig.yRange.coerceAtLeast(1)
+        val delta = (initTouchY - touchY) / height.toFloat()
+        return (delta * GESTURE_STEPS_PER_UNIT).roundToInt() / GESTURE_STEPS_PER_UNIT
     }
 
     private val mScaleListener = object : ScaleGestureDetector.SimpleOnScaleGestureListener() {

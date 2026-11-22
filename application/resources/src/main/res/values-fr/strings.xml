@@ -407,6 +407,9 @@
     <string name="video_show_orientation_button">Afficher le bouton d’orientation</string>
     <string name="enable_brightness_gesture_title">Contrôler la luminosité au toucher</string>
     <string name="enable_brightness_gesture_summary">Pendant la lecture d’une vidéo, contrôler la luminosité au toucher</string>
+    <string name="enable_speed_gesture_title">Geste de vitesse</string>
+    <string name="enable_speed_gesture_summary">Contrôler la vitesse de lecture par un geste tactile</string>
+    <string name="speed_gesture_value">Vitesse %1$.3f×</string>
     <string name="enable_volume_gesture_title">Volume sonore au toucher</string>
     <string name="enable_volume_gesture_summary">Contrôler le volume par gestes durant la lecture vidéo</string>
     <string name="enable_seek_buttons">Boutons de déplacement</string>

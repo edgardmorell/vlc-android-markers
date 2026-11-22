@@ -36,6 +36,7 @@ import org.videolan.tools.ENABLE_DOUBLE_TAP_PLAY
 import org.videolan.tools.ENABLE_DOUBLE_TAP_SEEK
 import org.videolan.tools.ENABLE_FASTPLAY
 import org.videolan.tools.ENABLE_SCALE_GESTURE
+import org.videolan.tools.ENABLE_SPEED_GESTURE
 import org.videolan.tools.ENABLE_SWIPE_SEEK
 import org.videolan.tools.ENABLE_VOLUME_GESTURE
 import org.videolan.tools.FASTPLAY_SPEED
@@ -74,6 +75,7 @@ class PreferencesVideoControls : BasePreferenceFragment(), SharedPreferences.OnS
         findPreference<Preference>(SCREENSHOT_MODE)?.isVisible = !AndroidDevices.isAndroidTv
         volumeGesturePref?.isVisible = AndroidDevices.hasTsp
         findPreference<Preference>(ENABLE_BRIGHTNESS_GESTURE)?.isVisible = AndroidDevices.hasTsp
+        findPreference<Preference>(ENABLE_SPEED_GESTURE)?.isVisible = AndroidDevices.hasTsp
         findPreference<Preference>(POPUP_KEEPSCREEN)?.isVisible = !AndroidDevices.isAndroidTv && !AndroidUtil.isOOrLater
         findPreference<Preference>(KEY_VIDEO_DOUBLE_TAP_JUMP_DELAY)?.title = getString(if (AndroidDevices.isAndroidTv) R.string.video_key_jump_delay else R.string.video_double_tap_jump_delay)
         findPreference<Preference>(LOCK_USE_SENSOR)?.isVisible = !AndroidDevices.isAndroidTv
