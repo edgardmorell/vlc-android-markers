@@ -910,6 +910,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         overlayDelegate.updateHudMargins()
         overlayDelegate.updateTitleConstraints()
         overlayDelegate.rotateBookmarks()
+        floatingMarkersView?.post { floatingMarkersView?.let(::clampFloatingMarkersPosition) }
         screenshotDelegate.hide()
     }
 
@@ -1523,6 +1524,9 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     private fun volumeUp() {
         if (isMute) {
             updateMute()
+        } else if (softwareVolumeGestureActive) {
+            val maxVolume = if (isAudioBoostEnabled) 200 else 100
+            setAudioVolumePercent((volume.roundToInt() + (100f / audioMax.coerceAtLeast(1)).roundToInt()).coerceIn(0, maxVolume))
         } else service?.let { service ->
             val volume = if (audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) < audioMax)
                 audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) + 1
@@ -1532,7 +1536,10 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     }
 
     private fun volumeDown() {
-        service?.let { service ->
+        if (softwareVolumeGestureActive) {
+            val maxVolume = if (isAudioBoostEnabled) 200 else 100
+            setAudioVolumePercent((volume.roundToInt() - (100f / audioMax.coerceAtLeast(1)).roundToInt()).coerceIn(0, maxVolume))
+        } else service?.let { service ->
             val volume = if (service.volume > 100)
                 (((service.volume * audioMax).div(100)) - 1)
             else audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) - 1
@@ -2124,6 +2131,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
         capsule.translationX = settings.getFloat(KEY_MARKER_X, 0f)
         capsule.translationY = settings.getFloat(KEY_MARKER_Y, 0f)
+        capsule.post { clampFloatingMarkersPosition(capsule) }
 
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop
         val longPressTimeout = android.view.ViewConfiguration.getLongPressTimeout()
@@ -2215,6 +2223,17 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         next?.let { installDrag(it, { jumpMarker(false) }) }
     }
 
+    private fun clampFloatingMarkersPosition(capsule: View) {
+        val root = findViewById<View>(android.R.id.content) ?: return
+        if (root.width == 0 || root.height == 0 || capsule.width == 0 || capsule.height == 0) return
+        val minX = -capsule.left.toFloat()
+        val maxX = (root.width - capsule.right).toFloat()
+        val minY = -capsule.top.toFloat()
+        val maxY = (root.height - capsule.bottom).toFloat()
+        capsule.translationX = capsule.translationX.coerceIn(minX, maxX.coerceAtLeast(minX))
+        capsule.translationY = capsule.translationY.coerceIn(minY, maxY.coerceAtLeast(minY))
+    }
+
     private fun markerPreferenceKey(): String {
         val uri = service?.currentMediaWrapper?.uri?.toString() ?: "unknown_media"
         val digest = MessageDigest.getInstance("SHA-256").digest(uri.toByteArray())
@@ -2279,6 +2298,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         val parts = text.trim().split(":")
         if (parts.size !in 2..3) return null
         val secondsPart = parts.last().split(".", limit = 2)
+        if (secondsPart.size == 2 && secondsPart[1].isEmpty()) return null
         val seconds = secondsPart[0].toLongOrNull() ?: return null
         val millisText = if (secondsPart.size == 2) secondsPart[1] else "0"
         if (millisText.any { !it.isDigit() } || millisText.length > 3) return null
@@ -2286,7 +2306,13 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         val minutes = parts[parts.size - 2].toLongOrNull() ?: return null
         val hours = if (parts.size == 3) parts[0].toLongOrNull() ?: return null else 0L
         if (minutes < 0 || seconds !in 0..59 || hours < 0 || (parts.size == 3 && minutes !in 0..59)) return null
-        return ((hours * 3600 + minutes * 60 + seconds) * 1000 + millis).coerceAtLeast(0)
+        val totalMillis = java.math.BigInteger.valueOf(hours)
+            .multiply(java.math.BigInteger.valueOf(3600L))
+            .add(java.math.BigInteger.valueOf(minutes).multiply(java.math.BigInteger.valueOf(60L)))
+            .add(java.math.BigInteger.valueOf(seconds))
+            .multiply(java.math.BigInteger.valueOf(1000L))
+            .add(java.math.BigInteger.valueOf(millis))
+        return totalMillis.toString().toLongOrNull()
     }
 
     private fun showFloatingMarkerList() {
@@ -2325,12 +2351,15 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
             val jump = TextView(this).apply {
                 text = "▶"
-                textSize = 16f
-                setPadding(8, 12, 8, 12)
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setPadding(8, 8, 8, 8)
+                layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp)
                 setTextColor(android.graphics.Color.WHITE)
                 contentDescription = "Jump to marker"
                 setOnClickListener {
-                    seek(time, fromUser = true, fast = false, precise = true)
+                    val target = parseFloatingMarkerTime(timeEditors[time]?.text?.toString() ?: "") ?: time
+                    seek(target, fromUser = true, fast = false, precise = true)
                 }
             }
 
@@ -2353,45 +2382,53 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                         if (editedTime != time) saveFloatingMarkerLabel(editedTime, editor.text.toString())
                     }
                     removeFloatingMarker(time)
-                    showFloatingMarkerList()
+                    markers.remove(time)
+                    row.animate().alpha(0f).setDuration(120).withEndAction { container.removeView(row) }.start()
+                    timeEditors.remove(time)
+                    labelEditors.remove(time)
                 }
             }
 
-            row.addView(timestamp, LinearLayout.LayoutParams(112.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
+            row.addView(timestamp, LinearLayout.LayoutParams(96.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(jump, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(delete, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             container.addView(row)
         }
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.floating_markers_list_title)
             .setView(scroll)
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val updatedMarkers = mutableListOf<Long>()
-                val labels = JSONObject(settings.getString(markerLabelsPreferenceKey(), "{}") ?: "{}")
-
-                markers.forEach { originalTime ->
-                    val parsedTime = parseFloatingMarkerTime(timeEditors[originalTime]?.text?.toString() ?: "")
-                    val newTime = parsedTime ?: originalTime
-                    updatedMarkers.add(newTime)
-                    labels.remove(originalTime.toString())
-                    labels.put(newTime.toString(), labelEditors[originalTime]?.text?.toString()?.trim() ?: "")
+            .setPositiveButton(android.R.string.ok, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val duration = service?.length ?: 0L
+                val editedTimes = markers.mapNotNull { original ->
+                    parseFloatingMarkerTime(timeEditors[original]?.text?.toString() ?: "")
                 }
-
+                val invalid = editedTimes.size != markers.size || editedTimes.any { it < 0L || (duration > 0L && it > duration) }
+                if (invalid) {
+                    Toast.makeText(this, "Invalid timestamp. Use MM:SS.mmm or HH:MM:SS.mmm within the media duration.", Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                val labels = JSONObject(settings.getString(markerLabelsPreferenceKey(), "{}") ?: "{}")
+                markers.forEach { labels.remove(it.toString()) }
+                val updatedMarkers = mutableListOf<Long>()
+                markers.forEach { original ->
+                    val newTime = parseFloatingMarkerTime(timeEditors[original]?.text?.toString() ?: "") ?: return@forEach
+                    updatedMarkers.add(newTime)
+                    labels.put(newTime.toString(), labelEditors[original]?.text?.toString()?.trim() ?: "")
+                }
                 settings.edit()
                     .putString(markerPreferenceKey(), updatedMarkers.distinct().sorted().joinToString(","))
                     .putString(markerLabelsPreferenceKey(), labels.toString())
                     .apply()
-
-                if (timeEditors.any { (original, editor) ->
-                        parseFloatingMarkerTime(editor.text.toString()) == null
-                }) {
-                    Toast.makeText(this, "Invalid timestamp. Use MM:SS.mmm or HH:MM:SS.mmm.", Toast.LENGTH_LONG).show()
-                }
+                dialog.dismiss()
             }
-            .show()
+        }
+        dialog.show()
     }
 
     private fun jumpMarker(previous: Boolean) {

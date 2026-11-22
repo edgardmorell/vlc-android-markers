@@ -290,6 +290,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         if (touchAction == TOUCH_SPEED) {
                             handler.removeCallbacksAndMessages(null)
                             fastPlayRunnable = null
+                            player.service?.setRate(lastSpeedGestureRate, true)
                             player.overlayDelegate.showSpeedBar(lastSpeedGestureRate)
                             touchAction = TOUCH_NONE
                             return true
@@ -449,6 +450,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
 
     private fun isSpeedGestureZone(): Boolean {
         if (touchControls and TOUCH_FLAG_SPEED == 0) return false
+        if (player.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) return false
         val x = initTouchX
         return x >= 3 * screenConfig.metrics.widthPixels / 7f && x <= 4 * screenConfig.metrics.widthPixels / 7f
     }
@@ -463,13 +465,14 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
 
     private fun doSpeedTouch() {
         if (!initInAllowedBounds || (touchAction != TOUCH_NONE && touchAction != TOUCH_SPEED)) return
-        val rate = ((speedGestureStartRate + cumulativeGestureDelta()) * GESTURE_STEPS_PER_UNIT)
+        val rate = ((speedGestureStartRate + cumulativeGestureDelta()) * 100f)
             .roundToInt()
-            .div(1000f)
+            .div(100f)
             .coerceIn(MIN_GESTURE_RATE, MAX_GESTURE_RATE)
         if (rate == lastSpeedGestureRate) return
         lastSpeedGestureRate = rate
-        player.service?.setRate(rate, true)
+        // Apply the live rate without repeatedly persisting every touch sample.
+        player.service?.setRate(rate, false)
         player.overlayDelegate.showSpeedBar(rate)
     }
 
@@ -557,7 +560,12 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         if (isFirstBrightnessGesture) initBrightnessTouch()
         touchAction = TOUCH_BRIGHTNESS
         val targetBrightness = (brightnessGestureStartValue + cumulativeGestureDelta()).coerceIn(MIN_BRIGHTNESS, 1f)
-        val currentBrightness = player.window.attributes.screenBrightness
+        val currentBrightness = player.window.attributes.screenBrightness.takeIf { it >= 0f }
+            ?: getWindowBrightnessValue().also { brightness ->
+                val lp = player.window.attributes
+                lp.screenBrightness = brightness
+                player.window.attributes = lp
+            }
         if (targetBrightness != currentBrightness) player.changeBrightness(targetBrightness - currentBrightness)
     }
 

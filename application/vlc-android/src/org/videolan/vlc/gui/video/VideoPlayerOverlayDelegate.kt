@@ -389,6 +389,8 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         playerOverlayVolume = player.findViewById(R.id.player_overlay_volume)
         volumeValueText = player.findViewById(R.id.volume_value_text)
         playerVolumeProgress = player.findViewById(R.id.playerVolumeProgress)
+        player.findViewById<TextView>(R.id.title_text)?.setText(R.string.volume)
+        player.findViewById<android.widget.ImageView>(R.id.progress_icon)?.setImageResource(R.drawable.ic_player_volume)
         volumeValueText.text = "$volume%"
         playerVolumeProgress.isDouble = player.isAudioBoostEnabled
         playerVolumeProgress.setValue(volume)
@@ -401,10 +403,13 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         }
     }
 
-    /** Playback speed uses the same vertical adjustment gauge as brightness and volume. */
+    /** Playback speed shares the vertical gauge layout, with its own label and icon. */
     fun showSpeedBar(speed: Float) {
         val progress = (((speed - 0.25f) / (8f - 0.25f)) * 100).roundToInt().coerceIn(0, 100)
         showVolumeBar(progress)
+        playerVolumeProgress.isDouble = false
+        player.findViewById<TextView>(R.id.title_text)?.setText(R.string.playback_speed)
+        player.findViewById<android.widget.ImageView>(R.id.progress_icon)?.setImageResource(R.drawable.ic_speed)
         volumeValueText.text = String.format(Locale.getDefault(), "%.2f×", speed)
     }
 

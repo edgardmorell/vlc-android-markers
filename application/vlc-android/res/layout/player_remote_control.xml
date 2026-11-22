@@ -54,6 +54,7 @@
                     android:layout_height="wrap_content"
                     android:layout_centerInParent="true"
                     app:srcCompat="@drawable/ic_cone_o"
+                    app:tint="?attr/colorAccent"
                     android:top="40dp"
                     android:visibility="invisible" />
 
