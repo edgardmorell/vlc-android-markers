@@ -39,9 +39,10 @@ import org.videolan.vlc.R
 
 class PlayerProgress : View {
     var isDouble: Boolean = false
+    var maxValue: Int = 0
     private var value: Int = 50
     private val progressPercent: Float
-        get() = if (isDouble) value.toFloat() / 200 else value.toFloat() / 100
+        get() = value.toFloat() / (maxValue.takeIf { it > 0 } ?: if (isDouble) 200 else 100)
 
     private val progressColor = ContextCompat.getColor(context, R.color.white)
     private val boostColor = ContextCompat.getColor(context, R.color.green700)

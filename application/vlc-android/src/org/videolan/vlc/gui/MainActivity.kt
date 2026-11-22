@@ -25,6 +25,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
@@ -313,6 +314,13 @@ class MainActivity : ContentActivity(),
     private fun updateIncognitoModeIcon() {
         val incognito = Settings.getInstance (this).getBoolean(KEY_INCOGNITO, false)
         toolbarIcon.setImageDrawable(ContextCompat.getDrawable(this, if (incognito) R.drawable.ic_incognito else if (BuildConfig.DEBUG && BuildConfig.VLC_MAJOR_VERSION == 4) R.drawable.ic_icon_vlc4 else R.drawable.ic_icon))
+        if (incognito) {
+            toolbarIcon.imageTintList = null
+        } else {
+            val colorPrimary = TypedValue()
+            theme.resolveAttribute(R.attr.colorPrimary, colorPrimary, true)
+            toolbarIcon.imageTintList = android.content.res.ColorStateList.valueOf(colorPrimary.data)
+        }
 
     }
 

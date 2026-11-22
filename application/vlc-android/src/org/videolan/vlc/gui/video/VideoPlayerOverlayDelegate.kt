@@ -125,6 +125,8 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
     private lateinit var playerOverlayVolume: ConstraintLayout
     private lateinit var volumeValueText: TextView
     private lateinit var playerVolumeProgress: PlayerProgress
+    private var pendingSpeedBarUpdate = false
+    private var pendingSpeed = 1f
     var info: TextView? = null
     var subinfo: TextView? = null
     var overlayInfo: View? = null
@@ -392,6 +394,7 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         player.findViewById<TextView>(R.id.title_text)?.setText(R.string.volume)
         player.findViewById<android.widget.ImageView>(R.id.progress_icon)?.setImageResource(R.drawable.ic_player_volume)
         volumeValueText.text = "$volume%"
+        playerVolumeProgress.maxValue = 0
         playerVolumeProgress.isDouble = player.isAudioBoostEnabled
         playerVolumeProgress.setValue(volume)
         playerOverlayVolume.setVisible()
@@ -405,12 +408,28 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
 
     /** Playback speed shares the vertical gauge layout, with its own label and icon. */
     fun showSpeedBar(speed: Float) {
-        val progress = (((speed - 0.25f) / (8f - 0.25f)) * 100).roundToInt().coerceIn(0, 100)
-        showVolumeBar(progress)
-        playerVolumeProgress.isDouble = false
-        player.findViewById<TextView>(R.id.title_text)?.setText(R.string.playback_speed)
-        player.findViewById<android.widget.ImageView>(R.id.progress_icon)?.setImageResource(R.drawable.ic_speed)
-        volumeValueText.text = String.format(Locale.getDefault(), "%.2f×", speed)
+        pendingSpeed = speed
+        if (pendingSpeedBarUpdate) return
+        pendingSpeedBarUpdate = true
+        player.window.decorView.postOnAnimation {
+            pendingSpeedBarUpdate = false
+            val displayedSpeed = pendingSpeed
+            player.handler.sendEmptyMessage(VideoPlayerActivity.FADE_OUT_BRIGHTNESS_INFO)
+            player.findViewById<ViewStubCompat>(R.id.player_volume_stub)?.setVisible()
+            playerOverlayVolume = player.findViewById(R.id.player_overlay_volume)
+            volumeValueText = player.findViewById(R.id.volume_value_text)
+            playerVolumeProgress = player.findViewById(R.id.playerVolumeProgress)
+            player.findViewById<TextView>(R.id.title_text)?.setText(R.string.playback_speed)
+            player.findViewById<ImageView>(R.id.progress_icon)?.setImageResource(R.drawable.ic_speed)
+            volumeValueText.text = String.format(Locale.getDefault(), "%d%%", (displayedSpeed * 100f).roundToInt())
+            playerVolumeProgress.isDouble = false
+            playerVolumeProgress.maxValue = 800
+            playerVolumeProgress.setValue((displayedSpeed * 100f).roundToInt().coerceIn(0, 800))
+            playerOverlayVolume.setVisible()
+            player.handler.removeMessages(VideoPlayerActivity.FADE_OUT_VOLUME_INFO)
+            player.handler.sendEmptyMessageDelayed(VideoPlayerActivity.FADE_OUT_VOLUME_INFO, 1000L)
+            dimStatusBar(true)
+        }
     }
 
     /**
