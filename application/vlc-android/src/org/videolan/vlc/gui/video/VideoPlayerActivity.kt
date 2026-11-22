@@ -321,6 +321,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     private var volSave: Int = 0
     internal var volume: Float = 0.toFloat()
     internal var originalVol: Float = 0.toFloat()
+    private var softwareVolumeGestureActive = false
     private var warningToast: Toast? = null
 
     internal var fov: Float = 0.toFloat()
@@ -1523,24 +1524,21 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
         if (isMute) {
             updateMute()
         } else service?.let { service ->
-            var volume = if (audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) < audioMax)
+            val volume = if (audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) < audioMax)
                 audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) + 1
-            else
-                (service.volume.toFloat() * audioMax / 100 + 1).roundToInt()
-            volume = volume.coerceAtLeast(0).coerceAtMost(audioMax * if (isAudioBoostEnabled) 2 else 1)
-            setAudioVolume(volume)
+            else (service.volume.toFloat() * audioMax / 100 + 1).roundToInt()
+            setAudioVolume(volume.coerceAtLeast(0).coerceAtMost(audioMax * if (isAudioBoostEnabled) 2 else 1))
         }
     }
 
     private fun volumeDown() {
         service?.let { service ->
-            var vol = if (service.volume > 100)
+            val volume = if (service.volume > 100)
                 (((service.volume * audioMax).div(100)) - 1)
-            else
-                audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) - 1
-            vol = vol.coerceAtLeast(0).coerceAtMost(audioMax * if (isAudioBoostEnabled) 2 else 1)
-            originalVol = vol.toFloat()
-            setAudioVolume(vol)
+            else audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) - 1
+            val boundedVolume = volume.coerceAtLeast(0).coerceAtMost(audioMax * if (isAudioBoostEnabled) 2 else 1)
+            originalVol = boundedVolume.toFloat()
+            setAudioVolume(boundedVolume)
         }
     }
 
@@ -1833,11 +1831,15 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     }
 
     internal fun initAudioVolume() = service?.let { service ->
-        if (service.volume <= 100) {
-            volume = audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-            originalVol = audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+        if (service.volume < 100 || softwareVolumeGestureActive) {
+            volume = service.volume.toFloat()
+            originalVol = volume
+        } else if (service.volume == 100) {
+            volume = (audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / audioMax.coerceAtLeast(1)).roundToInt().toFloat()
+            originalVol = volume
         } else {
-            volume = service.volume.toFloat() * audioMax / 100
+            volume = service.volume.toFloat()
+            originalVol = volume
         }
     }
 
@@ -1852,32 +1854,45 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
     internal fun setAudioVolume(volume: Int) {
         var vol = volume
+        softwareVolumeGestureActive = false
         if (AndroidUtil.isNougatOrLater && (vol <= 0) xor isMute) {
             mute(!isMute)
-            return  //Android N+ throws "SecurityException: Not allowed to change Do Not Disturb state"
+            return
         }
 
-        /* Since android 4.3, the safe volume warning dialog is displayed only with the FLAG_SHOW_UI flag.
-         * We don't want to always show the default UI volume, so show it only when volume is not set. */
         service?.let { service ->
             if (vol <= audioMax) {
                 service.setVolume(100)
                 if (vol != audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC)) {
                     try {
                         audiomanager.setStreamVolume(AudioManager.STREAM_MUSIC, vol, 0)
-                        // High Volume warning can block volume setting
                         if (audiomanager.getStreamVolume(AudioManager.STREAM_MUSIC) != vol)
                             audiomanager.setStreamVolume(AudioManager.STREAM_MUSIC, vol, AudioManager.FLAG_SHOW_UI)
                     } catch (ignored: RuntimeException) {
                     }
-                    //Some device won't allow us to change volume
                 }
                 vol = (vol * 100 / audioMax.toFloat()).roundToInt()
             } else {
                 vol = (vol * 100 / audioMax.toFloat()).roundToInt()
-                service.setVolume(vol.toFloat().roundToInt())
+                service.setVolume(vol)
             }
             overlayDelegate.showVolumeBar(vol)
+            volSave = service.volume
+        }
+    }
+
+    /** Applies a fine software gain for the video gesture without relying on Android stream steps. */
+    internal fun setAudioVolumePercent(volume: Int) {
+        val percent = volume.coerceIn(0, if (isAudioBoostEnabled) 200 else 100)
+        if (AndroidUtil.isNougatOrLater && (percent <= 0) xor isMute) {
+            mute(!isMute)
+            return
+        }
+        service?.let { service ->
+            softwareVolumeGestureActive = true
+            service.setVolume(percent)
+            this.volume = percent.toFloat()
+            overlayDelegate.showVolumeBar(percent)
             volSave = service.volume
         }
     }
@@ -1896,11 +1911,11 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     }
 
     internal fun changeBrightness(delta: Float) {
-        // Estimate and adjust Brightness
         val lp = window.attributes
-        var brightness = (lp.screenBrightness + delta).coerceIn(0.01f, 1f)
+        val currentPercent = (lp.screenBrightness.coerceIn(0.01f, 1f) * 100).roundToInt()
+        val brightness = (currentPercent + (delta * 100).roundToInt()).coerceIn(1, 100) / 100f
         setWindowBrightness(brightness)
-        overlayDelegate.showBrightnessBar(brightness * 100f)
+        overlayDelegate.showBrightnessBar(brightness * 100)
     }
 
     private fun setWindowBrightness(brightness: Float) {
@@ -2323,6 +2338,8 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 setText(getFloatingMarkerLabel(time))
                 hint = getString(R.string.floating_markers_default_label)
                 setSingleLine(true)
+                maxWidth = 160.dp
+                minEms = 4
             }
             labelEditors[time] = label
 
@@ -2340,7 +2357,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 }
             }
 
-            row.addView(timestamp, LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT))
+            row.addView(timestamp, LinearLayout.LayoutParams(112.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(jump, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(delete, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))

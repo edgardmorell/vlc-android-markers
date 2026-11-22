@@ -290,7 +290,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         if (touchAction == TOUCH_SPEED) {
                             handler.removeCallbacksAndMessages(null)
                             fastPlayRunnable = null
-                            player.overlayDelegate.showInfo(player.getString(R.string.speed_gesture_value, lastSpeedGestureRate), 1000)
+                            player.overlayDelegate.showSpeedBar(lastSpeedGestureRate)
                             touchAction = TOUCH_NONE
                             return true
                         }
@@ -470,7 +470,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         if (rate == lastSpeedGestureRate) return
         lastSpeedGestureRate = rate
         player.service?.setRate(rate, true)
-        player.overlayDelegate.showInfo(player.getString(R.string.speed_gesture_value, rate), 1000)
+        player.overlayDelegate.showSpeedBar(rate)
     }
 
     private fun doSeekTouch(coef: Int, gesturesize: Float, seek: Boolean) {
@@ -514,8 +514,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
     private fun doVolumeTouch() {
         if (!initInAllowedBounds) return
         if (touchAction != TOUCH_NONE && touchAction != TOUCH_VOLUME) return
-        val audioMax = player.audioMax
-        val maxVolume = (audioMax * if (player.isAudioBoostEnabled) 2 else 1).coerceAtLeast(1)
+        val maxVolume = if (player.isAudioBoostEnabled) 200 else 100
         val normalizedStart = (volumeGestureStartValue / maxVolume).coerceIn(0f, 1f)
         val normalizedDelta = cumulativeGestureDelta()
         val targetVolume = (normalizedStart + normalizedDelta).coerceIn(0f, 1f) * maxVolume
@@ -525,12 +524,12 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         touchAction = TOUCH_VOLUME
         if (vol == lastVolumeGestureIndex) return
 
-        if (vol > audioMax && player.isAudioBoostEnabled && player.originalVol < audioMax) {
+        if (vol > 100 && player.isAudioBoostEnabled && player.originalVol < 100) {
             player.displayWarningToast()
-            player.setAudioVolume(audioMax)
-            lastVolumeGestureIndex = audioMax
+            player.setAudioVolumePercent(100)
+            lastVolumeGestureIndex = 100
         } else {
-            player.setAudioVolume(vol)
+            player.setAudioVolumePercent(vol)
             lastVolumeGestureIndex = vol
         }
     }

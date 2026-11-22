@@ -371,7 +371,7 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         brightnessValueText = player.findViewById(R.id.brightness_value_text)
         playerBrightnessProgress = player.findViewById(R.id.playerBrightnessProgress)
         playerOverlayBrightness.setVisible()
-        brightnessValueText.text = String.format(Locale.getDefault(), "%.1f%%", brightness)
+        brightnessValueText.text = String.format(Locale.getDefault(), "%d%%", brightness.roundToInt())
         playerBrightnessProgress.setValue(brightness.roundToInt())
         playerOverlayBrightness.setVisible()
         player.handler.removeMessages(VideoPlayerActivity.FADE_OUT_BRIGHTNESS_INFO)
@@ -399,6 +399,13 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         player.service?.let { service ->
             resetSleepTimer(service)
         }
+    }
+
+    /** Playback speed uses the same vertical adjustment gauge as brightness and volume. */
+    fun showSpeedBar(speed: Float) {
+        val progress = (((speed - 0.25f) / (8f - 0.25f)) * 100).roundToInt().coerceIn(0, 100)
+        showVolumeBar(progress)
+        volumeValueText.text = String.format(Locale.getDefault(), "%.2f×", speed)
     }
 
     /**

@@ -91,7 +91,7 @@ abstract class PickTimeFragment : PlaybackBottomSheetDialogFragment(), View.OnCl
 
     override fun onFocusChange(v: View, hasFocus: Boolean) {
         if (v is TextView) {
-            v.setTextColor(if (hasFocus) ContextCompat.getColor(requireActivity(), R.color.orange500) else mTextColor)
+            v.setTextColor(if (hasFocus) ContextCompat.getColor(requireActivity(), R.color.green500) else mTextColor)
         }
     }
 

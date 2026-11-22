@@ -38,6 +38,12 @@
     <color name="green700">#3ea992</color>
     <color name="green800">#359989</color>
     <color name="green900">#2b8a81</color>
+    <color name="green500transparent">#b450c8a3</color>
+    <color name="green500focus">#8650c8a3</color>
+    <color name="green200transparent">#6491dcc5</color>
+    <color name="green_800_transparent_10">#1a359989</color>
+    <color name="green_800_transparent_20">#33359989</color>
+    <color name="green_500_transparent_20">#3350c8a3</color>
     
     <color name="grey50">#fafafa</color>
     <color name="grey100">#f5f5f5</color>

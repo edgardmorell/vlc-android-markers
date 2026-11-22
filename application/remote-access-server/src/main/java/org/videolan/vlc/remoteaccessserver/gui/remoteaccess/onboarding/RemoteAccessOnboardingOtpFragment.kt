@@ -95,7 +95,7 @@ class RemoteAccessOnboardingOtpFragment : RemoteAccessOnboardingFragment() {
         accessTransAnimator.duration = 500
 
 
-        val orange = ContextCompat.getColor(requireActivity(), R.color.orange500)
+        val orange = ContextCompat.getColor(requireActivity(), R.color.green500)
         val red = ContextCompat.getColor(requireActivity(), R.color.red)
         val green = ContextCompat.getColor(requireActivity(), R.color.green400)
         val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), orange, red)

@@ -301,7 +301,7 @@ fun EqualizerWithBands.getBitmap(context: Context): Bitmap {
     canvas.clipPath(path)
 
 
-    paint.color = if (equalizerEntry.presetIndex == -1) ContextCompat.getColor(context, R.color.orange500focus) else color
+    paint.color = if (equalizerEntry.presetIndex == -1) ContextCompat.getColor(context, R.color.green500focus) else color
     var x = 0
     bands.sortedBy { it.index }.forEach {
         val heightPc = (it.bandValue + 20) / 40
