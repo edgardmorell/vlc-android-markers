@@ -1,0 +1,114 @@
+name: Inspect LibVLC 3.7.7 AAR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-aar:
+    name: Inspect Maven Central AAR
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download and inspect AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          work_dir="$RUNNER_TEMP/libvlc-aar-inspection"
+          mkdir -p "$work_dir/extracted"
+          cd "$work_dir"
+
+          artifact_url="https://repo.maven.apache.org/maven2/org/videolan/android/libvlc-all/3.7.7/libvlc-all-3.7.7.aar"
+          curl --fail --location --retry 3 --output libvlc-all-3.7.7.aar "$artifact_url"
+          sha256sum libvlc-all-3.7.7.aar | tee sha256.txt
+          unzip -q libvlc-all-3.7.7.aar -d extracted
+
+          {
+            echo "# LibVLC AAR inspection report"
+            echo
+            echo "- Artifact: \`org.videolan.android:libvlc-all:3.7.7\`"
+            echo "- Version: 3.7.7"
+            echo "- Download URL: $artifact_url"
+            echo "- SHA-256: $(cut -d ' ' -f1 sha256.txt)"
+            echo "- Runner: $RUNNER_OS / $ImageOS"
+            echo "- Inspection time (UTC): $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo
+            echo "## Tools"
+            for tool in curl sha256sum unzip file strings nm readelf llvm-readelf llvm-nm; do
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "- $tool: $(command -v "$tool")"
+              else
+                echo "- $tool: unavailable"
+              fi
+            done
+            echo
+            echo "## AAR entries"
+            unzip -l libvlc-all-3.7.7.aar
+            echo
+            echo "## Extracted files"
+            find extracted -type f -printf '%P (%s bytes)\n' | sort
+            echo
+            echo "## Native libraries and ABI coverage"
+            find extracted -type f -name '*.so' -printf '%P\n' | sort
+            echo
+            echo "ABI directories found:"
+            find extracted/jni -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort || true
+          } > report.md
+
+          {
+            echo "LibVLC AAR native inspection"
+            echo "Artifact: org.videolan.android:libvlc-all:3.7.7"
+            echo "SHA-256: $(cut -d ' ' -f1 sha256.txt)"
+            echo
+            echo "=== Native files, file type, and architecture ==="
+            while IFS= read -r so_file; do
+              [ -n "$so_file" ] || continue
+              echo
+              echo "--- ${so_file#extracted/} ---"
+              file "$so_file" || true
+              echo "Architecture from ELF header:"
+              if command -v readelf >/dev/null 2>&1; then readelf -h "$so_file" | grep -E 'Class:|Machine:' || true; elif command -v llvm-readelf >/dev/null 2>&1; then llvm-readelf -h "$so_file" | grep -E 'Class:|Machine:' || true; fi
+              echo "Plugin/filter related strings:"
+              strings -a "$so_file" | grep -iE 'scaletempo_pitch|pitch-shift|scaletempo|audio.?filter|filter.?audio|audio filter' | sort -u || true
+              echo "Exported dynamic symbols (filtered):"
+              if command -v nm >/dev/null 2>&1; then nm -D --defined-only "$so_file" 2>/dev/null | grep -iE 'pitch|scale.?tempo|audio.?filter|filter' || true; elif command -v llvm-nm >/dev/null 2>&1; then llvm-nm --dynamic --defined-only "$so_file" 2>/dev/null | grep -iE 'pitch|scale.?tempo|audio.?filter|filter' || true; else echo "No compatible nm tool available"; fi
+              echo "ELF dynamic dependencies / relevant sections:"
+              if command -v readelf >/dev/null 2>&1; then readelf -d "$so_file" 2>/dev/null | grep -E 'NEEDED|SONAME' || true; elif command -v llvm-readelf >/dev/null 2>&1; then llvm-readelf -d "$so_file" 2>/dev/null | grep -E 'NEEDED|SONAME' || true; fi
+            done < <(find extracted -type f -name '*.so' | sort)
+            echo
+            echo "=== Plugin metadata and non-ELF metadata files ==="
+            find extracted -type f | grep -iE 'plugin|module|vlc|\.dat$|\.json$|\.xml$|\.properties$' | grep -v '\.so$' | sort || true
+            while IFS= read -r metadata; do
+              [ -f "$metadata" ] || continue
+              echo
+              echo "--- ${metadata#extracted/} ---"
+              file "$metadata" || true
+              if file "$metadata" | grep -qiE 'text|json|xml|empty'; then
+                grep -iE 'scaletempo_pitch|pitch-shift|scaletempo|audio.?filter|plugin|module' "$metadata" || true
+              else
+                strings -a "$metadata" | grep -iE 'scaletempo_pitch|pitch-shift|scaletempo|audio.?filter|plugin|module' | sort -u || true
+              fi
+            done < <(find extracted -type f | grep -iE 'plugin|module|vlc|\.dat$|\.json$|\.xml$|\.properties$' | grep -v '\.so$' | sort || true)
+          } > native-inspection.txt
+
+          cat native-inspection.txt >> report.md
+          cat >> report.md <<'EOF'
+
+          ## Interpretation and limitations
+
+          String matches, plugin metadata, and ELF symbols are evidence to correlate, not standalone proof that the filter can be loaded or controlled. A missing string or exported symbol does not prove the filter is absent: modules may be stripped, statically linked, represented by generated plugin metadata, or expose no public control symbol. Conversely, a string match alone does not prove the filter is loadable on every ABI or usable through LibVLC's public API. Confirm presence by correlating the AAR's module inventory/build metadata with the source build configuration; runtime validation would be a later, separate step.
+          EOF
+
+          echo "Report generated at $work_dir/report.md"
+
+      - name: Publish inspection report
+        uses: actions/upload-artifact@v4
+        with:
+          name: libvlc-3.7.7-aar-inspection
+          path: |
+            ${{ runner.temp }}/libvlc-aar-inspection/report.md
+            ${{ runner.temp }}/libvlc-aar-inspection/native-inspection.txt
+            ${{ runner.temp }}/libvlc-aar-inspection/sha256.txt
+          if-no-files-found: error
+          retention-days: 30
