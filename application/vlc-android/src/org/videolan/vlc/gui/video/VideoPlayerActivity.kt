@@ -2090,35 +2090,48 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     }
 
     fun toggleFloatingMarkers() {
-        floatingMarkersView?.let { it.visibility = if (it.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+        floatingMarkersView?.let {
+            it.visibility = if (it.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
     }
 
     private fun initFloatingMarkers() {
         val capsule = findViewById<LinearLayout>(R.id.floating_markers) ?: return
         floatingMarkersView = capsule
+
         val addButton = findViewById<TextView>(R.id.marker_add)
-        addButton?.setOnClickListener { addFloatingMarker() }
+        addButton?.setOnClickListener { }
         addButton?.setOnLongClickListener {
             showMarkerOpacityDialog(capsule)
             true
         }
-        findViewById<TextView>(R.id.marker_previous)?.setOnClickListener { jumpMarker(previous = true) }
-        findViewById<TextView>(R.id.marker_next)?.setOnClickListener { jumpMarker(previous = false) }
 
-        // Restore the user's last position and opacity.
+        findViewById<TextView>(R.id.marker_previous)?.setOnClickListener {
+            jumpMarker(previous = true)
+        }
+        findViewById<TextView>(R.id.marker_next)?.setOnClickListener {
+            jumpMarker(previous = false)
+        }
+        findViewById<TextView>(R.id.marker_menu)?.setOnClickListener {
+            showMarkerManagementMenu(capsule)
+        }
+
         capsule.translationX = settings.getFloat(KEY_MARKER_X, 0f)
         capsule.translationY = settings.getFloat(KEY_MARKER_Y, 0f)
         applyMarkerOpacity(capsule, settings.getInt(KEY_MARKER_OPACITY, DEFAULT_MARKER_OPACITY))
 
-        // Drag using the center button. A simple tap still creates a marker.
         var downX = 0f
         var downY = 0f
         var initialX = 0f
         var initialY = 0f
         var dragged = false
         var downTime = 0L
+        var markerAtTouch: Long? = null
+        var markerCancelled = false
+
         val touchSlop = android.view.ViewConfiguration.get(this).scaledTouchSlop
         val longPressTimeout = android.view.ViewConfiguration.getLongPressTimeout()
+
         addButton?.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -2128,48 +2141,144 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                     initialY = capsule.translationY
                     downTime = event.eventTime
                     dragged = false
+                    markerCancelled = false
+
+                    // Create immediately on touch-down.
+                    markerAtTouch = addFloatingMarker()
                     true
                 }
+
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX
                     val dy = event.rawY - downY
-                    if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop) dragged = true
+
+                    if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop)
+                        dragged = true
+
+                    if (dragged && !markerCancelled) {
+                        markerAtTouch?.let { removeFloatingMarker(it) }
+                        markerCancelled = true
+                    }
+
                     if (dragged) {
                         rootView?.let { root ->
                             val minX = -capsule.left.toFloat()
                             val maxX = (root.width - capsule.right).toFloat()
                             val minY = -capsule.top.toFloat()
                             val maxY = (root.height - capsule.bottom).toFloat()
-                            capsule.translationX = (initialX + dx).coerceIn(minX, maxX.coerceAtLeast(minX))
-                            capsule.translationY = (initialY + dy).coerceIn(minY, maxY.coerceAtLeast(minY))
+
+                            capsule.translationX =
+                                (initialX + dx).coerceIn(minX, maxX.coerceAtLeast(minX))
+                            capsule.translationY =
+                                (initialY + dy).coerceIn(minY, maxY.coerceAtLeast(minY))
                         }
                     }
                     true
                 }
+
                 MotionEvent.ACTION_UP -> {
+                    val longPress = event.eventTime - downTime >= longPressTimeout
+
                     if (dragged) {
                         settings.edit {
                             putFloat(KEY_MARKER_X, capsule.translationX)
                             putFloat(KEY_MARKER_Y, capsule.translationY)
                         }
-                    } else if (event.eventTime - downTime >= longPressTimeout) {
+                    } else if (longPress) {
+                        markerAtTouch?.let { removeFloatingMarker(it) }
                         showMarkerOpacityDialog(capsule)
-                    } else view.performClick()
+                    }
+
+                    view.performClick()
                     true
                 }
-                MotionEvent.ACTION_CANCEL -> true
+
+                MotionEvent.ACTION_CANCEL -> {
+                    markerAtTouch?.let { removeFloatingMarker(it) }
+                    true
+                }
+
                 else -> false
             }
         }
     }
 
-    private fun addFloatingMarker() {
-        val now = service?.getTime() ?: return
+    private fun addFloatingMarker(): Long? {
+        val now = service?.getTime() ?: return null
         val key = markerPreferenceKey()
         val old = settings.getString(key, "") ?: ""
         val markers = old.split(',').mapNotNull { it.toLongOrNull() }.toMutableSet()
         markers.add(now)
         settings.edit().putString(key, markers.sorted().joinToString(",")).apply()
+        return now
+    }
+
+    private fun removeFloatingMarker(time: Long) {
+        val key = markerPreferenceKey()
+        val old = settings.getString(key, "") ?: ""
+        val markers = old.split(',').mapNotNull { it.toLongOrNull() }.toMutableSet()
+        markers.remove(time)
+        settings.edit().putString(key, markers.sorted().joinToString(",")).apply()
+    }
+
+    private fun showMarkerManagementMenu(capsule: View) {
+        val options = arrayOf(
+            getString(R.string.floating_markers_delete_nearest),
+            getString(R.string.floating_markers_delete_all),
+            getString(R.string.floating_markers_opacity)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.floating_markers)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> deleteNearestMarker()
+                    1 -> deleteAllMarkers()
+                    2 -> showMarkerOpacityDialog(capsule)
+                }
+            }
+            .show()
+    }
+
+    private fun deleteNearestMarker() {
+        val current = service?.getTime() ?: return
+        val key = markerPreferenceKey()
+        val markers = (settings.getString(key, "") ?: "")
+            .split(',').mapNotNull { it.toLongOrNull() }.sorted()
+
+        val nearest = markers.minByOrNull { kotlin.math.abs(it - current) }
+        if (nearest == null) {
+            Toast.makeText(this, R.string.floating_markers_none, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.floating_markers_confirm_delete, nearest / 1000))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.floating_markers_delete) { _, _ ->
+                val updated = markers.filter { it != nearest }
+                settings.edit().putString(key, updated.joinToString(",")).apply()
+            }
+            .show()
+    }
+
+    private fun deleteAllMarkers() {
+        val key = markerPreferenceKey()
+        val markers = (settings.getString(key, "") ?: "")
+            .split(',').mapNotNull { it.toLongOrNull() }
+
+        if (markers.isEmpty()) {
+            Toast.makeText(this, R.string.floating_markers_none, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setMessage(R.string.floating_markers_confirm_delete_all)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.floating_markers_delete) { _, _ ->
+                settings.edit().remove(key).apply()
+            }
+            .show()
     }
 
     private fun showMarkerOpacityDialog(capsule: View) {
@@ -2177,6 +2286,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
             max = 100
             progress = settings.getInt(KEY_MARKER_OPACITY, DEFAULT_MARKER_OPACITY) * 100 / 255
         }
+
         AlertDialog.Builder(this)
             .setTitle(R.string.floating_markers_opacity)
             .setView(seekBar)
@@ -2202,9 +2312,13 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
     private fun jumpMarker(previous: Boolean) {
         val current = service?.getTime() ?: return
-        val markers = (settings.getString(markerPreferenceKey(), "") ?: "").split(',').mapNotNull { it.toLongOrNull() }.sorted()
-        val target = if (previous) markers.lastOrNull { it < current } else markers.firstOrNull { it > current }
-        target?.let { seek(it, fromUser = true) }
+        val markers = (settings.getString(markerPreferenceKey(), "") ?: "")
+            .split(',').mapNotNull { it.toLongOrNull() }.sorted()
+
+        val target = if (previous) markers.lastOrNull { it < current }
+                     else markers.firstOrNull { it > current }
+
+        target?.let { seek(it, fromUser = true, fast = true) }
     }
 
     fun doPlayPause() {
