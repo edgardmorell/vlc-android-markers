@@ -47,7 +47,7 @@ jobs:
           bash ./buildsystem/compile.sh --init
 
       - name: Build debug APK
-        run: gradle --no-daemon --stacktrace :application:vlc-android:assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
