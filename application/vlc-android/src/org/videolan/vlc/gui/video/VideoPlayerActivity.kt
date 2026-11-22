@@ -2339,7 +2339,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 }
             }
 
-            row.addView(timestamp, LinearLayout.LayoutParams(116, LinearLayout.LayoutParams.WRAP_CONTENT))
+            row.addView(timestamp, LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(jump, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
             row.addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             row.addView(delete, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
