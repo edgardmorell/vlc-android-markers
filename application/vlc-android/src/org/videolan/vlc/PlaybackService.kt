@@ -151,8 +151,14 @@ import org.videolan.tools.KEY_AUDIO_TASK_REMOVED
 import org.videolan.tools.KEY_CURRENT_MEDIA_IS_AUDIO
 import org.videolan.tools.KEY_ENABLE_HEADSET_DETECTION
 import org.videolan.tools.KEY_ENABLE_PLAY_ON_HEADSET_INSERTION
+import org.videolan.tools.KEY_INCOGNITO
+import org.videolan.tools.KEY_INCOGNITO_PLAYBACK_SPEED_AUDIO_GLOBAL_VALUE
+import org.videolan.tools.KEY_INCOGNITO_PLAYBACK_SPEED_VIDEO_GLOBAL_VALUE
 import org.videolan.tools.KEY_METERED_CONNECTION
 import org.videolan.tools.KEY_PLAYBACK_SPEED_AUDIO_GLOBAL
+import org.videolan.tools.KEY_PLAYBACK_SPEED_AUDIO_GLOBAL_VALUE
+import org.videolan.tools.KEY_PLAYBACK_SPEED_VIDEO_GLOBAL
+import org.videolan.tools.KEY_PLAYBACK_SPEED_VIDEO_GLOBAL_VALUE
 import org.videolan.tools.KEY_VIDEO_APP_SWITCH
 import org.videolan.tools.LOCKSCREEN_COVER
 import org.videolan.tools.POSITION_IN_AUDIO_LIST
@@ -1789,11 +1795,33 @@ class PlaybackService : MediaBrowserServiceCompat(), LifecycleOwner, CoroutineSc
 
     @MainThread
     fun setRate(rate: Float, save: Boolean) {
-        if (this.rate == rate) return
+        if (this.rate == rate) {
+            if (save) persistPlaybackRate(rate)
+            return
+        }
         playlistManager.player.setRate(rate, save)
+        if (save) persistPlaybackRate(rate)
         // Live gesture updates already reach the player speed LiveData. Avoid
         // refreshing widgets, media-session metadata and broadcasts per sample.
         if (save) executeUpdate(true)
+    }
+
+    /** Persist explicit speed changes using the existing global or per-media setting. */
+    private fun persistPlaybackRate(rate: Float) {
+        val video = playlistManager.player.isVideoPlaying()
+        val globalKey = if (video) KEY_PLAYBACK_SPEED_VIDEO_GLOBAL else KEY_PLAYBACK_SPEED_AUDIO_GLOBAL
+        val globalValueKey = if (video) KEY_PLAYBACK_SPEED_VIDEO_GLOBAL_VALUE else KEY_PLAYBACK_SPEED_AUDIO_GLOBAL_VALUE
+        val incognito = settings.getBoolean(KEY_INCOGNITO, false)
+        val global = settings.getBoolean(globalKey, false)
+
+        if (global) {
+            val valueKey = if (incognito) {
+                if (video) KEY_INCOGNITO_PLAYBACK_SPEED_VIDEO_GLOBAL_VALUE else KEY_INCOGNITO_PLAYBACK_SPEED_AUDIO_GLOBAL_VALUE
+            } else globalValueKey
+            settings.edit { putFloat(valueKey, rate) }
+        } else if (!incognito) {
+            currentMediaWrapper?.setStringMeta(MediaWrapper.META_SPEED, rate.toString())
+        }
     }
 
     @MainThread
