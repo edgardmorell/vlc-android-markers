@@ -11,7 +11,6 @@
     android:visibility="gone"
     android:elevation="16dp">
 
-    <!-- Navigation et création des marqueurs -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -52,38 +51,4 @@
             android:contentDescription="Next marker" />
 
     </LinearLayout>
-
-    <!-- Contrôle de boucle A/B -->
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
-
-        <TextView
-            android:id="@+id/marker_loop_a"
-            android:layout_width="48dp"
-            android:layout_height="40dp"
-            android:gravity="center"
-            android:text="A"
-            android:textColor="#999999"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:background="@drawable/floating_marker_button_ripple"
-            android:contentDescription="Set loop point A" />
-
-        <TextView
-            android:id="@+id/marker_loop_b"
-            android:layout_width="48dp"
-            android:layout_height="40dp"
-            android:gravity="center"
-            android:text="B"
-            android:textColor="#999999"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:background="@drawable/floating_marker_button_ripple"
-            android:contentDescription="Set loop point B" />
-
-    </LinearLayout>
-
 </LinearLayout>
