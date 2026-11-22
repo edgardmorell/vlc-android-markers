@@ -1448,11 +1448,8 @@
     <string name="forum_url" translatable="false">https://forum.videolan.org/viewforum.php?f=35</string>
     <string name="doc_url" translatable="false">https://docs.videolan.me/vlc-user/android/</string>
     <string name="floating_markers">Floating markers</string>
-    <string name="floating_markers_opacity">Capsule opacity</string>
-    <string name="floating_markers_delete_nearest">Delete nearest marker</string>
-    <string name="floating_markers_delete_all">Delete all markers for this video</string>
+    <string name="floating_markers_list_title">Markers</string>
+    <string name="floating_markers_default_label">Marker</string>
     <string name="floating_markers_delete">Delete</string>
     <string name="floating_markers_none">No markers found for this video</string>
-    <string name="floating_markers_confirm_delete">Delete marker at %1$d seconds?</string>
-    <string name="floating_markers_confirm_delete_all">Delete all markers for this video?</string>
 </resources>

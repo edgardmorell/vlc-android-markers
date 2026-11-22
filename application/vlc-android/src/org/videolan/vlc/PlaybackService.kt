@@ -987,8 +987,8 @@ class PlaybackService : MediaBrowserServiceCompat(), LifecycleOwner, CoroutineSc
         playlistManager.isHardware = true
     }
 
-    fun setTime(time: Long, fast: Boolean = false) {
-        val shouldFast = fast || (!playlistManager.isBenchmark && settings.getBoolean(KEY_ALWAYS_FAST_SEEK, false))
+    fun setTime(time: Long, fast: Boolean = false, precise: Boolean = false) {
+        val shouldFast = !precise && (fast || (!playlistManager.isBenchmark && settings.getBoolean(KEY_ALWAYS_FAST_SEEK, false)))
         playlistManager.player.setTime(time, shouldFast)
         publishState(time)
     }
@@ -1821,8 +1821,8 @@ class PlaybackService : MediaBrowserServiceCompat(), LifecycleOwner, CoroutineSc
 
     @MainThread
     @JvmOverloads
-    fun seek(time: Long, length: Double = this.length.toDouble(), fromUser: Boolean = false, fast: Boolean = false) {
-        if (length > 0.0) this.setTime(time, fast) else {
+    fun seek(time: Long, length: Double = this.length.toDouble(), fromUser: Boolean = false, fast: Boolean = false, precise: Boolean = false) {
+        if (length > 0.0) this.setTime(time, fast, precise) else {
             setPosition((time.toFloat() / NO_LENGTH_PROGRESS_MAX.toFloat()))
             publishState(time)
         }
