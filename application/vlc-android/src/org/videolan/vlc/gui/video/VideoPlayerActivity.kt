@@ -2135,8 +2135,8 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 }
             }
 
-            buttonAction?.let {
-                view.setOnClickListener { it.invoke() }
+            buttonAction?.let { action ->
+                view.setOnClickListener { action.invoke() }
             }
 
             if (longAction != null) {
@@ -2308,7 +2308,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
             val label = EditText(this).apply {
                 setText(getFloatingMarkerLabel(time))
                 hint = getString(R.string.floating_markers_default_label)
-                singleLine = true
+                setSingleLine(true)
             }
             editors[time] = label
 
