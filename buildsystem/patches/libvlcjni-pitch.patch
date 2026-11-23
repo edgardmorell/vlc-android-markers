@@ -1,0 +1,52 @@
+--- a/libvlc/jni/libvlcjni-mediaplayer.c
++++ b/libvlc/jni/libvlcjni-mediaplayer.c
+@@ -29,6 +29,9 @@
+ #endif
+ 
+ #include "libvlcjni-vlcobject.h"
++#include "../../vlc/lib/media_player_internal.h"
++#include "../../vlc/include/vlc_input.h"
++#include "../../vlc/include/vlc_variables.h"
+ 
+ #define THREAD_NAME "libvlcjni"
+ JNIEnv *jni_get_env(const char *name);
+@@ -324,6 +327,23 @@
+     libvlc_media_player_set_rate(p_obj->u.p_mp, rate);
+ }
+ 
++void
++Java_org_videolan_libvlc_MediaPlayer_nativeSetPitchShift(JNIEnv *env, jobject thiz,
++                                                        jfloat semitones)
++{
++    vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
++    if (!p_obj || !p_obj->u.p_mp || !p_obj->u.p_mp->input.p_resource)
++        return;
++
++    input_resource_t *resource = p_obj->u.p_mp->input.p_resource;
++    audio_output_t *aout = input_resource_HoldAout(resource);
++    if (aout)
++    {
++        var_SetFloat(VLC_OBJECT(aout), "pitch-shift", semitones);
++        input_resource_PutAout(resource, aout);
++    }
++}
++
+ jboolean
+ Java_org_videolan_libvlc_MediaPlayer_isPlaying(JNIEnv *env, jobject thiz)
+ {
+--- a/libvlc/src/org/videolan/libvlc/MediaPlayer.java
++++ b/libvlc/src/org/videolan/libvlc/MediaPlayer.java
+@@ -1309,6 +1309,13 @@
+      * @param rate
+      */
+         public native void setRate(float rate);
++
++    /** Adjust audio pitch independently from playback speed, in semitones. */
++    public void setPitchShift(float semitones) {
++        nativeSetPitchShift(semitones);
++    }
++
++    private native void nativeSetPitchShift(float semitones);
+ 
+     /**
+      * Get the current playback speed
