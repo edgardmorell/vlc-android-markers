@@ -500,7 +500,26 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         }
     }
 
-    private fun doPitchTouch() {\n        if (!initInAllowedBounds || (touchAction != TOUCH_NONE && touchAction != TOUCH_PITCH)) return\n        val target = (pitchGestureStartPercent + cumulativeGestureDelta() * 100f).coerceIn(50f, 200f)\n        val percent = target.roundToInt()\n        if (percent == lastPitchPercent) return\n        pitchPercent = percent.toFloat()\n        lastPitchPercent = percent\n        val semitones = (12.0 * kotlin.math.ln(percent / 100.0) / kotlin.math.ln(2.0)).toFloat()\n        player.service?.mediaplayer?.setPitchShift(semitones)\n        player.overlayDelegate.showInfo("Pitch $percent%", 50)\n    }\n\n    fun resetPitch() {\n        pitchPercent = 100f\n        lastPitchPercent = 100\n        player.service?.mediaplayer?.setPitchShift(0f)\n        player.overlayDelegate.showInfo("Pitch 100%", 1000)\n    }\n\n    private fun doVolumeTouch() {
+    private fun doPitchTouch() {
+        if (!initInAllowedBounds || (touchAction != TOUCH_NONE && touchAction != TOUCH_PITCH)) return
+        val target = (pitchGestureStartPercent + cumulativeGestureDelta() * 100f).coerceIn(50f, 200f)
+        val percent = target.roundToInt()
+        if (percent == lastPitchPercent) return
+        pitchPercent = percent.toFloat()
+        lastPitchPercent = percent
+        val semitones = (12.0 * kotlin.math.ln(percent / 100.0) / kotlin.math.ln(2.0)).toFloat()
+        player.service?.mediaplayer?.setPitchShift(semitones)
+        player.overlayDelegate.showInfo("Pitch $percent%", 50)
+    }
+
+    fun resetPitch() {
+        pitchPercent = 100f
+        lastPitchPercent = 100
+        player.service?.mediaplayer?.setPitchShift(0f)
+        player.overlayDelegate.showInfo("Pitch 100%", 1000)
+    }
+
+    private fun doVolumeTouch() {
         if (!initInAllowedBounds) return
         if (touchAction != TOUCH_NONE && touchAction != TOUCH_VOLUME) return
         val maxVolume = if (player.isAudioBoostEnabled) 200 else 100
