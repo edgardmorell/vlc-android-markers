@@ -1,6 +1,6 @@
 --- a/libvlc/jni/libvlcjni-mediaplayer.c
 +++ b/libvlc/jni/libvlcjni-mediaplayer.c
-@@ -29,6 +29,13 @@
+@@ -29,6 +29,14 @@
  #endif
  
  #include "libvlcjni-vlcobject.h"
@@ -41,7 +41,7 @@
  {
 --- a/libvlc/src/org/videolan/libvlc/MediaPlayer.java
 +++ b/libvlc/src/org/videolan/libvlc/MediaPlayer.java
-@@ -1309,6 +1309,13 @@
+@@ -1309,6 +1309,11 @@
       * @param rate
       */
          public native void setRate(float rate);
