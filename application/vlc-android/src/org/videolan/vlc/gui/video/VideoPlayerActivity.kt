@@ -1591,6 +1591,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
     override fun onMediaPlayerEvent(event: MediaPlayer.Event) {
         service?.let { service ->
             when (event.type) {
+                MediaPlayer.Event.MediaChanged -> touchDelegate.resetPitch()
                 MediaPlayer.Event.Playing -> onPlaying()
                 MediaPlayer.Event.Paused -> overlayDelegate.updateOverlayPausePlay()
                 MediaPlayer.Event.Opening -> {
