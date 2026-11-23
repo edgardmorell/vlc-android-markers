@@ -306,10 +306,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                             return true
                         }
                         // Vertical actions
-                        if (touchAction == TOUCH_VOLUME || touchAction == TOUCH_PITCH) {
-                            doVerticalTouchAction(yChanged)
-                            return true
-                        }
+                        if (touchAction == TOUCH_VOLUME || touchAction == TOUCH_PITCH) return true
 
                         handler.removeCallbacksAndMessages(null)
 
