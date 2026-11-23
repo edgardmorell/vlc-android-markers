@@ -60,6 +60,7 @@ private const val TOUCH_IGNORE = 5
 private const val TOUCH_SCREENSHOT = 6
 private const val TOUCH_FASTPLAY = 7
 private const val TOUCH_SPEED = 8
+private const val TOUCH_PITCH = 9
 
 private const val MIN_FOV = 20f
 private const val MAX_FOV = 150f
@@ -97,6 +98,9 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
     private var lastSpeedGestureRate = 1f
     private var volumeGestureStartValue = 0f
     private var lastVolumeGestureIndex = 0
+    private var pitchGestureStartPercent = 100f
+    private var pitchPercent = 100f
+    private var lastPitchPercent = 100
 
     //Seek
     private var nbTimesTaped = 0
@@ -194,6 +198,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         player.initAudioVolume()
                         volumeGestureStartValue = player.volume
                         lastVolumeGestureIndex = player.volume.roundToInt()
+                        pitchGestureStartPercent = pitchPercent
                         if (touchAction == TOUCH_FASTPLAY) {
                             player.overlayDelegate.hideOverlay(false)
                             player.service?.setRate(savedRate, false)
@@ -441,7 +446,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         val width = screenConfig.metrics.widthPixels
         val x = initTouchX
         val isSideZone = x < 3 * width / 7f || x > 4 * width / 7f
-        return isSideZone && (touchControls and TOUCH_FLAG_AUDIO_VOLUME != 0)
+        return isSideZone && (x < 3 * width / 7f || touchControls and TOUCH_FLAG_AUDIO_VOLUME != 0)
     }
 
     private fun doSpeedTouch() {
@@ -495,7 +500,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         }
     }
 
-    private fun doVolumeTouch() {
+    private fun doPitchTouch() {\n        if (!initInAllowedBounds || (touchAction != TOUCH_NONE && touchAction != TOUCH_PITCH)) return\n        val target = (pitchGestureStartPercent + cumulativeGestureDelta() * 100f).coerceIn(50f, 200f)\n        val percent = target.roundToInt()\n        if (percent == lastPitchPercent) return\n        pitchPercent = percent.toFloat()\n        lastPitchPercent = percent\n        val semitones = (12.0 * kotlin.math.ln(percent / 100.0) / kotlin.math.ln(2.0)).toFloat()\n        player.service?.mediaplayer?.setPitchShift(semitones)\n        player.overlayDelegate.showInfo("Pitch $percent%", 50)\n    }\n\n    fun resetPitch() {\n        pitchPercent = 100f\n        lastPitchPercent = 100\n        player.service?.mediaplayer?.setPitchShift(0f)\n        player.overlayDelegate.showInfo("Pitch 100%", 1000)\n    }\n\n    private fun doVolumeTouch() {
         if (!initInAllowedBounds) return
         if (touchAction != TOUCH_NONE && touchAction != TOUCH_VOLUME) return
         val maxVolume = if (player.isAudioBoostEnabled) 200 else 100
