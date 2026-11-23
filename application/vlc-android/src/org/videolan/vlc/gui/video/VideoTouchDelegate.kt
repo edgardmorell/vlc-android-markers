@@ -507,14 +507,14 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
         lastPitchPercent = percent
         val semitones = (12.0 * kotlin.math.ln(percent / 100.0) / kotlin.math.ln(2.0)).toFloat()
         player.service?.mediaplayer?.setPitchShift(semitones)
-        player.overlayDelegate.showInfo("Pitch $percent%", 50)
+        player.overlayDelegate.showInfo(player.getString(R.string.pitch_percentage, percent), 1000)
     }
 
     fun resetPitch() {
         pitchPercent = 100f
         lastPitchPercent = 100
         player.service?.mediaplayer?.setPitchShift(0f)
-        player.overlayDelegate.showInfo("Pitch 100%", 1000)
+        player.overlayDelegate.showInfo(player.getString(R.string.pitch_percentage, 100), 1000)
     }
 
     private fun doVolumeTouch() {
