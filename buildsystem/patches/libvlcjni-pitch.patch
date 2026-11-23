@@ -4,7 +4,11 @@
  #endif
  
  #include "libvlcjni-vlcobject.h"
++#ifndef N_
++#define N_(str) (str)
++#endif
 +#include "../../vlc/lib/media_player_internal.h"
++#undef N_
 +#include "../../vlc/include/vlc_input.h"
 +#include "../../vlc/include/vlc_variables.h"
  
