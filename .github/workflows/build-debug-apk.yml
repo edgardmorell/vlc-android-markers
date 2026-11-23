@@ -90,13 +90,13 @@ jobs:
           path: native-build-snapshot.zip
           retention-days: 7
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace assembleDebug
+      - name: Build dev APK with source-built LibVLCJNI
+        run: gradle --no-daemon --stacktrace assembleDev
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VLC-Marker-debug-apk
-          path: application/app/build/outputs/apk/debug/*.apk
+          name: VLC-Marker-dev-apk
+          path: application/app/build/outputs/apk/dev/*.apk
           if-no-files-found: error
           retention-days: 14
