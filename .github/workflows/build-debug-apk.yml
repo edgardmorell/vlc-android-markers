@@ -25,7 +25,7 @@ jobs:
         uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;21.4.7075529'
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;21.4.7075529' 'ndk;27.2.12479018'
 
       - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v4
@@ -69,7 +69,7 @@ jobs:
       - name: Compile LibVLCJNI and LibVLC from source (arm64)
         run: |
           export ANDROID_SDK="$ANDROID_HOME"
-          export ANDROID_NDK="$ANDROID_HOME/ndk/21.4.7075529"
+          export ANDROID_NDK="$ANDROID_HOME/ndk/27.2.12479018"
           export VLC_LIBJNI_PATH="$GITHUB_WORKSPACE/libvlcjni"
           bash ./buildsystem/compile.sh -l -a arm64-v8a
 
