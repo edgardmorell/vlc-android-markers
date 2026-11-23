@@ -142,7 +142,7 @@
     <string name="internal_memory">Internal memory</string>
     <string name="audio">Audio</string>
     <string name="video">Video</string>
-    <string name="bookmarks">Bookmarks</string>
+    <string name="bookmarks">Markers</string>
     <string name="equalizer">Equalizer</string>
     <string name="import_equalizer">Import equalizer</string>
     <string name="equalizer_exported">Equalizer(s) exported to %s</string>
@@ -1149,14 +1149,14 @@
     <string name="stop_unpaubale">This media cannot be paused. Stop it instead?</string>
     <string name="delete_forever">Delete forever</string>
     <string name="add_to_existing_playlist">Add to existing playlist</string>
-    <string name="bookmarks_title">Bookmarks</string>
-    <string name="no_bookmark">No bookmark set</string>
-    <string name="bookmark_default_name">Bookmark at %s</string>
-    <string name="bookmark_name">Bookmark %s</string>
-    <string name="add_bookmark">Add bookmark</string>
-    <string name="bookmark_added">Bookmark added</string>
-    <string name="previous_bookmark">Previous bookmark</string>
-    <string name="next_bookmark">Next bookmark</string>
+    <string name="bookmarks_title">Markers</string>
+    <string name="no_bookmark">No markers set</string>
+    <string name="bookmark_default_name">Marker at %s</string>
+    <string name="bookmark_name">Marker %s</string>
+    <string name="add_bookmark">Add marker</string>
+    <string name="bookmark_added">Marker added</string>
+    <string name="previous_bookmark">Previous marker</string>
+    <string name="next_bookmark">Next marker</string>
     <string name="show">Show</string>
     <string name="optional_features">Optional features</string>
     <string name="optional_features_summary">Beta features that are currently being tested and may not be stable</string>
@@ -1450,7 +1450,7 @@
     <string name="feedback_email_warning_try_anyway">Try anyway</string>
     <string name="forum_url" translatable="false">https://forum.videolan.org/viewforum.php?f=35</string>
     <string name="doc_url" translatable="false">https://docs.videolan.me/vlc-user/android/</string>
-    <string name="floating_markers">Floating markers</string>
+    <string name="floating_markers">Markers</string>
     <string name="floating_markers_list_title">Markers</string>
     <string name="floating_markers_default_label">Marker</string>
     <string name="floating_markers_delete">Delete</string>
