@@ -54,15 +54,15 @@ jobs:
           git -C libvlcjni checkout --detach 0b8dc65efb203c86a0476bc337ddd99ecf1c0ef6
           test "$(git -C libvlcjni rev-parse HEAD)" = "0b8dc65efb203c86a0476bc337ddd99ecf1c0ef6"
 
-      - name: Apply independent pitch JNI patch
-        run: git -C libvlcjni apply "$GITHUB_WORKSPACE/buildsystem/patches/libvlcjni-pitch.patch"
-
       - name: Initialize VLC sources
         run: |
           export ANDROID_SDK="$ANDROID_HOME"
           export ANDROID_NDK="$ANDROID_HOME/ndk/27.2.12479018"
           export VLC_LIBJNI_PATH="$GITHUB_WORKSPACE/libvlcjni"
           bash ./buildsystem/compile.sh --init
+
+      - name: Apply independent pitch JNI patch
+        run: git -C libvlcjni apply "$GITHUB_WORKSPACE/buildsystem/patches/libvlcjni-pitch.patch"
 
       - name: Archive LibVLCJNI source for inspection
         run: |
