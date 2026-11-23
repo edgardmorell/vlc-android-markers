@@ -32,7 +32,7 @@ jobs:
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;21.4.7075529' 'ndk;27.2.12479018'
 
       - name: Install native build prerequisites
-        run: sudo apt-get update && sudo apt-get install -y gperf gettext
+        run: sudo apt-get update && sudo apt-get install -y gperf gettext autopoint
 
       - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v4
