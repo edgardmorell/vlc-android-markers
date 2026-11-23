@@ -54,6 +54,17 @@ jobs:
           export VLC_LIBJNI_PATH="$GITHUB_WORKSPACE/libvlcjni"
           bash ./buildsystem/compile.sh --init
 
+      - name: Archive LibVLCJNI source for inspection
+        run: |
+          zip -r libvlcjni-source.zip libvlcjni/libvlc/jni libvlcjni/libvlc/src
+
+      - name: Upload LibVLCJNI source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: LibVLCJNI-source-snapshot
+          path: libvlcjni-source.zip
+          retention-days: 7
+
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
 
