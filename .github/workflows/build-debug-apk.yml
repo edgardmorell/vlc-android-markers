@@ -3,7 +3,7 @@ name: Build VLC Marker Debug APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [main, master, pitch-shift-native]
 
 permissions:
   contents: read
