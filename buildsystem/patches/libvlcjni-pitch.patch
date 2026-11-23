@@ -10,6 +10,7 @@
 +#include "../../vlc/lib/media_player_internal.h"
 +#undef N_
 +#include "../../vlc/include/vlc_input.h"
++#include "../../vlc/include/vlc_aout.h"
 +#include "../../vlc/include/vlc_variables.h"
  
  #define THREAD_NAME "libvlcjni"
