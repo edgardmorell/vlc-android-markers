@@ -57,6 +57,7 @@ jobs:
       - name: Archive LibVLCJNI source for inspection
         run: |
           zip -r libvlcjni-source.zip libvlcjni/libvlc/jni libvlcjni/libvlc/src
+          zip -r libvlcjni-source.zip libvlcjni/vlc/include libvlcjni/vlc/lib/audio.c libvlcjni/vlc/lib/media_player_internal.h libvlcjni/vlc/src/audio_output
 
       - name: Upload LibVLCJNI source snapshot
         uses: actions/upload-artifact@v4
