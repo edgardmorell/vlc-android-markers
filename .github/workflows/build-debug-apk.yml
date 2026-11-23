@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pitch-shift-native-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
