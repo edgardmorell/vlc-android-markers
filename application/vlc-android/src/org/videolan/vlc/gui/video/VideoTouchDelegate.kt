@@ -306,7 +306,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                             return true
                         }
                         // Vertical actions
-                        if (touchAction == TOUCH_VOLUME) {
+                        if (touchAction == TOUCH_VOLUME || touchAction == TOUCH_PITCH) {
                             doVerticalTouchAction(yChanged)
                             return true
                         }
@@ -334,6 +334,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         if (numberOfTaps > 1 && !player.isLocked) {
                             val range = (if (screenConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) screenConfig.xRange else screenConfig.yRange).toFloat()
                             when {
+                                numberOfTaps >= 3 && event.x < range / 3f -> resetPitch()
                                 (touchControls and TOUCH_FLAG_DOUBLE_TAP_SEEK != 0) && event.x < range / 4f -> seekDelta(-org.videolan.tools.Settings.videoDoubleTapJumpDelay * 1000)
                                 (touchControls and TOUCH_FLAG_DOUBLE_TAP_SEEK != 0) && event.x > range * 0.75 -> seekDelta(org.videolan.tools.Settings.videoDoubleTapJumpDelay * 1000)
                                 else -> if (touchControls and TOUCH_FLAG_PLAY != 0) player.doPlayPause()
