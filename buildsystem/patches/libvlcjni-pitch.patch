@@ -41,7 +41,7 @@
  {
 --- a/libvlc/src/org/videolan/libvlc/MediaPlayer.java
 +++ b/libvlc/src/org/videolan/libvlc/MediaPlayer.java
-@@ -1309,5 +1309,11 @@
+@@ -1309,6 +1309,14 @@
       * @param rate
       */
          public native void setRate(float rate);
