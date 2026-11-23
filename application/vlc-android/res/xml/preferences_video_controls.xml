@@ -40,28 +40,14 @@
                 android:title="@string/enable_volume_gesture_title"
                 app:iconSpaceReserved="false"
                 app:singleLineTitle="false" />
-        <CheckBoxPreference
-                android:defaultValue="true"
-                android:key="enable_brightness_gesture"
-                android:summary="@string/enable_brightness_gesture_summary"
-                android:title="@string/enable_brightness_gesture_title"
-                app:iconSpaceReserved="false"
-                app:singleLineTitle="false" />
-        <CheckBoxPreference
+<CheckBoxPreference
                 android:defaultValue="false"
                 android:key="enable_speed_gesture"
                 android:summary="@string/enable_speed_gesture_summary"
                 android:title="@string/enable_speed_gesture_title"
                 app:iconSpaceReserved="false"
                 app:singleLineTitle="false" />
-        <CheckBoxPreference
-                app:singleLineTitle="false"
-                android:defaultValue="false"
-                android:key="save_brightness"
-                app:iconSpaceReserved="false"
-                android:summary="@string/save_brightness_summary"
-                android:title="@string/save_brightness_title"/>
-        <CheckBoxPreference
+<CheckBoxPreference
                 android:defaultValue="true"
                 android:key="enable_swipe_seek"
                 android:summary="@string/enable_swipe_seek_summary"
