@@ -172,6 +172,8 @@ object VLCOptions {
             if (networkCaching > 0) options.add("--network-caching=$networkCaching")
             options.add("--audio-resampler")
             options.add("soxr")
+            // Enable VLC's pitch-shifter so JNI can adjust it live via the audio output.
+            options.add("--audio-filter=scaletempo_pitch")
             options.add("--audiotrack-session-id=$audiotrackSessionId")
 
             if (isVLC4()) options.add("--sub-text-scale=" + (1600 / freetypeRelFontsize!!.toFloat()).toString()) else options.add("--freetype-rel-fontsize=" + freetypeRelFontsize!!)
