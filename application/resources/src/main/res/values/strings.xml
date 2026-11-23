@@ -1455,4 +1455,5 @@
     <string name="floating_markers_default_label">Marker</string>
     <string name="floating_markers_delete">Delete</string>
     <string name="floating_markers_none">No markers found for this video</string>
+    <string name="pitch_percentage">Pitch %1$d%%</string>
 </resources>
