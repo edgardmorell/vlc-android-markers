@@ -15,7 +15,7 @@
  
  #define THREAD_NAME "libvlcjni"
  JNIEnv *jni_get_env(const char *name);
-@@ -324,6 +327,23 @@
+@@ -324,6 +327,22 @@
      libvlc_media_player_set_rate(p_obj->u.p_mp, rate);
  }
  
@@ -41,7 +41,7 @@
  {
 --- a/libvlc/src/org/videolan/libvlc/MediaPlayer.java
 +++ b/libvlc/src/org/videolan/libvlc/MediaPlayer.java
-@@ -1309,6 +1309,14 @@
+@@ -1309,6 +1309,12 @@
       * @param rate
       */
          public native void setRate(float rate);
